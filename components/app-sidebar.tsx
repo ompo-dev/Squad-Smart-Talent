@@ -4,7 +4,8 @@ import * as React from "react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
-import { NavUser } from "@/components/nav-user"
+import { LoginAccess } from "@/components/molecules/login-access"
+import {RealtimeBridge} from "@/components/organisms/realtime-bridge"
 import { TeamSwitcher } from "@/components/team-switcher"
 import {
   Sidebar,
@@ -62,6 +63,9 @@ const data = {
     },
   ],
   projects: [
+    {name:"Importações",url:"/dashboard/jobs",icon:<DatabaseIcon/>},
+    {name:"Documentação da API",url:"/docs",icon:<Settings2Icon/>},
+    {name:"Observabilidade",url:"/dashboard/observabilidade",icon:<ActivityIcon/>},
     {
       name: "Relatórios",
       url: "/dashboard/relatorios",
@@ -82,7 +86,7 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <><RealtimeBridge/><Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
@@ -91,9 +95,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavProjects projects={data.projects} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <LoginAccess />
       </SidebarFooter>
       <SidebarRail />
-    </Sidebar>
+    </Sidebar></>
   )
 }

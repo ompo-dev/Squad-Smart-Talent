@@ -1,5 +1,8 @@
 "use client"
-import { useMemo, useState } from "react"
+import { useEffect,useMemo, useState } from "react"
+import {useTelemetryStore} from "@/lib/stores/telemetry-store"
+import {recordComponentRender} from "@/lib/observability/client"
+import {useRealtimeStore} from "@/lib/stores/realtime-store"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { DataTable } from "@/components/data-table"
 import { Input } from "@/components/ui/input"
@@ -7,14 +10,20 @@ import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardDescription, CardTitle, CardFooter } from "@/components/ui/card"
 
 type RecordRow = { id: number; header: string; type: string; status: string; target: string; limit: string; reviewer: string }
-export function StandardTelemetryView({ rows, series, stats }: {
+export function StandardTelemetryView({ rows:initialRows, series:initialSeries, stats:initialStats,mode="latest" }: {
+  mode?:"latest"|"alerts"|"readings"
   rows: RecordRow[]; series: { date: string; desktop: number; mobile: number }[]
   stats?: { readings: number; machines: number; temperature: number; alerts: number }
 }) {
+  const view=useTelemetryStore(state=>state.views[mode]),load=useTelemetryStore(state=>state.load),loading=useTelemetryStore(state=>state.loading[mode]),error=useTelemetryStore(state=>state.errors[mode]),parent=useTelemetryStore(state=>state.traceparent)
+  const rows=view?.rows??initialRows,series=view?.series??initialSeries,stats=view?.stats??initialStats
+  useEffect(()=>{if(parent)recordComponentRender(parent,"telemetry.read")},[parent])
+  useEffect(()=>{const parent=useRealtimeStore.getState().traceparent;if(parent)recordComponentRender(parent,"telemetry.read")},[initialRows])
   const [search, setSearch] = useState("")
   const [condition, setCondition] = useState("all")
   const filtered = useMemo(() => rows.filter((r) => r.header.toLowerCase().includes(search.toLowerCase()) && (condition === "all" || r.status === condition)), [rows, search, condition])
   return <div className="@container/main flex min-w-0 flex-col gap-6">
+    <div className="flex items-center justify-end gap-3">{error&&<p role="alert" className="text-sm text-destructive">{error}</p>}<Button variant="outline" disabled={loading} onClick={()=>void load(mode)}>{loading?"Atualizando…":"Atualizar leituras"}</Button></div>
     {stats && <div className="grid gap-4 sm:grid-cols-2 @5xl/main:grid-cols-4">{[
       ["Máquinas monitoradas", String(stats.machines), "Ativos presentes no arquivo"],
       ["Temperatura média", `${stats.temperature} °C`, "Média das leituras registradas"],

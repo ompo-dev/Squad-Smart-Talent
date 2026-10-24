@@ -1,8 +1,9 @@
+import {tracedRoute} from "@/lib/observability/server"
 import {z} from "zod"
 import {createThread,saveMessages} from "@/lib/chat-db"
 import type {Message} from "@openuidev/react-headless"
 const schema=z.object({messages:z.array(z.object({id:z.string(),role:z.enum(["user","assistant"]),content:z.string().max(40000),tools:z.array(z.object({id:z.string(),name:z.string(),args:z.record(z.string(),z.unknown()),data:z.record(z.string(),z.unknown())})).max(12).optional()})).min(1).max(50)})
-export async function POST(request:Request) {
+async function handlePOST(request:Request) {
   const parsed=schema.safeParse(await request.json().catch(()=>null))
   if(!parsed.success)return Response.json({error:"Histórico antigo inválido"},{status:400})
   const first=parsed.data.messages.find(m=>m.role==="user")
@@ -12,3 +13,5 @@ export async function POST(request:Request) {
   await saveMessages(thread.id,messages)
   return Response.json(thread)
 }
+
+export const POST=tracedRoute("POST /api/threads/import",handlePOST)

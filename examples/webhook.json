@@ -1,0 +1,16 @@
+{
+  "eventId": "example-machine-24-reading-9990001",
+  "readings": [
+    {
+      "id": 9990001,
+      "machineId": 24,
+      "timestamp": "2026-10-24T12:00:00.000Z",
+      "temperature": 78.4,
+      "oilPressure": 42,
+      "rpm": 1200,
+      "vibration": 2.1,
+      "consumption": 12,
+      "engineHours": 1500
+    }
+  ]
+}

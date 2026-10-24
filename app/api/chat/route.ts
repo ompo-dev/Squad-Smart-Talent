@@ -1,12 +1,14 @@
+import {tracedRoute} from "@/lib/observability/server"
 import { z } from "zod"
 import { runAgent } from "@/lib/chat-agent"
 import { getMessages, saveMessages } from "@/lib/chat-db"
 import type { Message, AssistantMessage } from "@openuidev/react-headless"
 import type { ChatEvent } from "@/lib/chat-types"
+import {claimChatRun,finishChatRun,replayChatRun} from "@/lib/application/chat-runs"
 export const runtime="nodejs"
 export const maxDuration=180
 const inputSchema=z.object({threadId:z.string().uuid(),messages:z.array(z.object({id:z.string().max(150),role:z.enum(["user","assistant","tool"]),content:z.string().max(120000).optional()}).passthrough()).min(1).max(500)})
-export async function POST(request:Request) {
+async function handlePOST(request:Request) {
   const parsed=inputSchema.safeParse(await request.json().catch(()=>null))
   if(!parsed.success) return Response.json({error:"Conversa inválida"},{status:400})
   if(!process.env.DEEPSEEK_API_KEY) return Response.json({error:"DeepSeek não configurado"},{status:503})
@@ -16,6 +18,12 @@ export async function POST(request:Request) {
   const userIndex=messages.findLastIndex(message=>message.role==="user")
   const question=messages[userIndex]?.content
   if(typeof question!=="string"||!question.trim()||question.length>6000) return Response.json({error:"Pergunta de até 6.000 caracteres"},{status:400})
+  const userId=messages[userIndex].id
+  try {
+    const claim=await claimChatRun(userId,threadId,question)
+    if(claim.kind==="running")return Response.json({error:"Esta mensagem já está sendo processada. Aguarde a resposta."},{status:409})
+    if(claim.kind==="replay")return replayChatRun(threadId,claim.messages)
+  }catch(error){return Response.json({error:error instanceof Error?error.message:"Falha ao iniciar análise"},{status:409})}
   const history=messages.slice(0,userIndex).flatMap(m=>(m.role==="user"||m.role==="assistant")&&typeof m.content==="string"?[{role:m.role,content:m.content.slice(0,24000)}]:[]).slice(-18)
   const attachmentRefs=[...new Set(messages.flatMap(m=>m.role==="user"&&typeof m.content==="string"?[...m.content.matchAll(/\[Anexo: .*?; arquivo_id: [a-f0-9-]+\]/g)].map(match=>match[0]):[]))].slice(-12)
   const questionWithFiles=question+(attachmentRefs.length?`\n\nAnexos disponíveis nesta conversa:\n${attachmentRefs.join("\n")}`:"")
@@ -53,10 +61,12 @@ export async function POST(request:Request) {
       assistant.content=message
       send({type:"RUN_ERROR",message})
     } finally {
-      try {await saveMessages(threadId,output)} catch {send({type:"RUN_ERROR",message:"Não foi possível salvar esta resposta. Recarregue para verificar a conversa."})}
+      try {await finishChatRun(userId,threadId,output,output.slice(messages.length))} catch {send({type:"RUN_ERROR",message:"Não foi possível salvar esta resposta. Recarregue para verificar a conversa."})}
       send({type:"RUN_FINISHED",threadId,runId})
       try {controller.close()} catch { /* disconnected */ }
     }
   }})
   return new Response(stream,{headers:{"Content-Type":"text/event-stream; charset=utf-8","Cache-Control":"no-store","X-Accel-Buffering":"no"}})
 }
+
+export const POST=tracedRoute("POST /api/chat",handlePOST)

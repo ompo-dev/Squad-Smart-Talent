@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model TraceEvent {
+  id           String   @id @default(uuid()) @db.Uuid
+  traceId      String   @map("trace_id") @db.VarChar(32)
+  spanId       String   @map("span_id") @db.VarChar(16)
+  parentSpanId String?  @map("parent_span_id") @db.VarChar(16)
+  name         String
+  layer        String
+  status       String
+  durationMs   Float    @map("duration_ms")
+  startedAt    DateTime @map("started_at") @db.Timestamptz(6)
+  attributes   Json     @default("{}")
+
+  @@unique([traceId, spanId])
+  @@index([traceId, startedAt])
+  @@index([startedAt, name])
+  @@map("trace_events")
+}
+
+model CacheRevision {
+  key   String @id
+  value BigInt @default(0)
+
+  @@map("cache_revisions")
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false) @map("email_verified")
+  image         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("auth_users")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([identifier])
+  @@map("auth_verifications")
+}
+
+model Telemetry {
+  version     Int      @default(0)
+  id          BigInt   @id @map("id_leitura")
+  machineId   Int      @map("id_maquina")
+  timestamp   DateTime @map("data_hora") @db.Timestamp(6)
+  temperature Decimal? @map("temp_motor_c") @db.Decimal
+  oilPressure Decimal? @map("pressao_oleo_psi") @db.Decimal
+  rpm         Decimal? @db.Decimal
+  vibration   Decimal? @map("vibracao_mm_s") @db.Decimal
+  consumption Decimal? @map("consumo_l_h") @db.Decimal
+  engineHours Decimal? @map("horas_motor") @db.Decimal
+
+  @@index([machineId, timestamp])
+  @@map("telemetry")
+}
+
+model ChatThread {
+  id        String   @id @db.Uuid
+  title     String
+  messages  Json     @default("[]")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("chat_threads")
+}
+
+model ChatFile {
+  id        String   @id @db.Uuid
+  name      String
+  mediaType String   @map("media_type")
+  size      Int
+  content   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("chat_files")
+}
+
+model TelemetryChange {
+  expectedVersion Int       @default(0) @map("expected_version")
+  appliedVersion  Int?      @map("applied_version")
+  id              String    @id @db.Uuid
+  readingId       Int       @map("reading_id")
+  field           String
+  beforeValue     Decimal?  @map("before_value") @db.Decimal
+  afterValue      Decimal?  @map("after_value") @db.Decimal
+  reason          String
+  status          String    @default("pending")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  appliedAt       DateTime? @map("applied_at") @db.Timestamptz(6)
+
+  @@map("telemetry_changes")
+}
+
+model CommandReceipt {
+  id          String   @id
+  type        String
+  payloadHash String   @map("payload_hash")
+  result      Json
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("command_receipts")
+}
+
+model ChatRun {
+  id          String   @id
+  threadId    String   @map("thread_id") @db.Uuid
+  payloadHash String   @map("payload_hash")
+  status      String   @default("running")
+  messages    Json     @default("[]")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("chat_runs")
+}
+
+model ImportJob {
+  id          String   @id @db.Uuid
+  filename    String
+  content     String
+  status      String   @default("queued")
+  attempts    Int      @default(0)
+  progress    Int      @default(0)
+  result      Json?
+  errorCode   String?  @map("error_code")
+  traceparent String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([createdAt])
+  @@map("import_jobs")
+}
+
+model OutboxEvent {
+  id            String    @id @db.Uuid
+  eventType     String    @map("event_type")
+  aggregateId   String    @map("aggregate_id")
+  payload       Json
+  attempts      Int       @default(0)
+  lockedAt      DateTime? @map("locked_at") @db.Timestamptz(6)
+  lockedBy      String?   @map("locked_by")
+  nextAttemptAt DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([publishedAt, nextAttemptAt, lockedAt])
+  @@map("outbox_events")
+}

@@ -4,6 +4,7 @@ import { createParser } from "@openuidev/lang-core"
 import { agentTools, executeAgentTool } from "@/lib/agent-tools"
 import { analysisPrompt, analysisSpec } from "@/lib/openui-schema"
 import type { ChatEvent, ToolResult } from "@/lib/chat-types"
+import {withSpan} from "@/lib/observability/server"
 
 const inputSchema = z.object({ question: z.string().trim().min(1).max(6000), stream: z.boolean().optional(), history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(24000) })).max(20).optional() })
 type ModelMessage = { role: string; content: string | null; tool_call_id?: string; tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[] }
@@ -57,12 +58,12 @@ export async function runAgent(input: z.infer<typeof inputSchema>, apiKey: strin
   for (let step = 0; step < 7; step++) {
     if (signal.aborted) throw new Error("Análise cancelada.")
     let streamed="",publishing=false
-    const message = await completion(messages, apiKey, signal, step === 0,(delta)=>{
+    const message = await withSpan("agent.completion","agent",()=>completion(messages, apiKey, signal, step === 0,(delta)=>{
       streamed+=delta
       if(!input.stream) return
       if(publishing) emit({type:"answer_delta",delta})
       else if(/^\s*root\s*=/.test(streamed)) {publishing=true;emit({type:"answer_delta",delta:streamed})}
-    })
+    }),{operation:"deepseek.completion"})
     messages.push(message)
     if (message.tool_calls?.length) {
       if (results.length + message.tool_calls.length > 8) throw new Error("Limite de funções por análise atingido. Faça uma pergunta mais específica.")
@@ -71,7 +72,7 @@ export async function runAgent(input: z.infer<typeof inputSchema>, apiKey: strin
         try {
           args = z.record(z.string(), z.unknown()).parse(JSON.parse(call.function.arguments))
           emit({ type: "tool_start", id: call.id, name: call.function.name, args })
-          const data = await executeAgentTool(call.function.name, args)
+          const data = await withSpan("agent.tool","agent",()=>executeAgentTool(call.function.name, args,{idempotencyKey:call.id}),{operation:call.function.name})
           result = { id: call.id, name: call.function.name, args, data }
         } catch (error) {
           result = { id: call.id, name: call.function.name, args, data: { error: error instanceof z.ZodError ? `Argumentos inválidos: ${error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}` : "Não foi possível executar esta consulta. Verifique os filtros e tente novamente." } }

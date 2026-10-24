@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS telemetry (id_leitura bigint PRIMARY KEY,id_maquina integer NOT NULL,data_hora timestamp NOT NULL,temp_motor_c numeric,pressao_oleo_psi numeric,rpm numeric,vibracao_mm_s numeric,consumo_l_h numeric,horas_motor numeric);
+CREATE TABLE IF NOT EXISTS chat_threads (id uuid PRIMARY KEY,title text NOT NULL,messages jsonb NOT NULL DEFAULT '[]',created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS chat_files (id uuid PRIMARY KEY,name text NOT NULL,media_type text NOT NULL,size integer NOT NULL,content text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS telemetry_changes (id uuid PRIMARY KEY,reading_id integer NOT NULL,field text NOT NULL,before_value numeric,after_value numeric,reason text NOT NULL,status text NOT NULL DEFAULT 'pending',created_at timestamptz NOT NULL DEFAULT now(),applied_at timestamptz);

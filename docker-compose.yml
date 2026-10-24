@@ -1,4 +1,10 @@
+name: d-a
 services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: ["telemetry_redis:/data"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 10 }
   postgres:
     image: postgres:16-alpine
     environment:
@@ -10,17 +16,52 @@ services:
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U telemetry -d telemetry"], interval: 5s, timeout: 5s, retries: 10 }
   web:
     build: .
+    logging: &service-logging
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     environment:
       DATABASE_URL: postgresql://telemetry:telemetry@postgres:5432/telemetry
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+      REDIS_URL: redis://redis:6379
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      REALTIME_PUBLIC_URL: ${REALTIME_PUBLIC_URL:-}
     ports: ["3000:3000"]
-    depends_on: { postgres: { condition: service_healthy } }
+    depends_on: { postgres: { condition: service_healthy }, redis: {condition: service_healthy} }
+    healthcheck: { test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], interval: 5s, timeout: 4s, retries: 20, start_period: 30s }
+  worker:
+    image: d-a-web
+    command: ["npm", "run", "worker"]
+    restart: unless-stopped
+    logging: *service-logging
+    environment:
+      DATABASE_URL: postgresql://telemetry:telemetry@postgres:5432/telemetry
+      REDIS_URL: redis://redis:6379
+    depends_on: { web: {condition: service_healthy}, redis: {condition: service_healthy} }
+    healthcheck: { test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], interval: 5s, timeout: 3s, retries: 10 }
+  realtime:
+    image: d-a-web
+    command: ["npm", "run", "realtime"]
+    restart: unless-stopped
+    logging: *service-logging
+    environment:
+      DATABASE_URL: postgresql://telemetry:telemetry@postgres:5432/telemetry
+      REDIS_URL: redis://redis:6379
+      REALTIME_ALLOWED_ORIGINS: ${REALTIME_ALLOWED_ORIGINS:-}
+    ports: ["3002:3002"]
+    depends_on: { redis: {condition: service_healthy}, web: {condition: service_healthy} }
+    healthcheck: { test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], interval: 5s, timeout: 3s, retries: 10 }
   ingest:
-    build: ./python
+    image: d-a-web
+    profiles: ["tools"]
+    command: ["npm", "run", "data:import"]
     environment:
       DATABASE_URL: postgresql://telemetry:telemetry@postgres:5432/telemetry
       CSV_PATH: /data/telemetria_suja.csv
-    volumes: ["./data:/data"]
+    volumes: ["./data:/data:ro"]
     depends_on: { postgres: { condition: service_healthy } }
-volumes: { telemetry_pg: {} }
+volumes: { telemetry_pg: {}, telemetry_redis: {} }
