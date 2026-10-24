@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: telemetry
+      POSTGRES_USER: telemetry
+      POSTGRES_PASSWORD: telemetry
+    ports: ["5432:5432"]
+    volumes: ["telemetry_pg:/var/lib/postgresql/data"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U telemetry -d telemetry"], interval: 5s, timeout: 5s, retries: 10 }
+  web:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://telemetry:telemetry@postgres:5432/telemetry
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+    ports: ["3000:3000"]
+    depends_on: { postgres: { condition: service_healthy } }
+  ingest:
+    build: ./python
+    environment:
+      DATABASE_URL: postgresql://telemetry:telemetry@postgres:5432/telemetry
+      CSV_PATH: /data/telemetria_suja.csv
+    volumes: ["./data:/data"]
+    depends_on: { postgres: { condition: service_healthy } }
+volumes: { telemetry_pg: {} }

@@ -1,0 +1,30 @@
+"use client"
+import { useMemo, useState } from "react"
+import { ChartAreaInteractive } from "@/components/chart-area-interactive"
+import { DataTable } from "@/components/data-table"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Card, CardHeader, CardDescription, CardTitle, CardFooter } from "@/components/ui/card"
+
+type RecordRow = { id: number; header: string; type: string; status: string; target: string; limit: string; reviewer: string }
+export function StandardTelemetryView({ rows, series, stats }: {
+  rows: RecordRow[]; series: { date: string; desktop: number; mobile: number }[]
+  stats?: { readings: number; machines: number; temperature: number; alerts: number }
+}) {
+  const [search, setSearch] = useState("")
+  const [condition, setCondition] = useState("all")
+  const filtered = useMemo(() => rows.filter((r) => r.header.toLowerCase().includes(search.toLowerCase()) && (condition === "all" || r.status === condition)), [rows, search, condition])
+  return <div className="@container/main flex min-w-0 flex-col gap-6">
+    {stats && <div className="grid gap-4 sm:grid-cols-2 @5xl/main:grid-cols-4">{[
+      ["Máquinas monitoradas", String(stats.machines), "Ativos presentes no arquivo"],
+      ["Temperatura média", `${stats.temperature} °C`, "Média das leituras registradas"],
+      ["Leituras em alerta", String(stats.alerts), "Temperatura > 100 °C ou vibração > 4,5 mm/s"],
+      ["Leituras disponíveis", stats.readings.toLocaleString("pt-BR"), "Base de telemetria no PostgreSQL"],
+    ].map(([label, value, note]) => <Card key={label} className="@container/card"><CardHeader><CardDescription>{label}</CardDescription><CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">{value}</CardTitle></CardHeader><CardFooter className="items-start text-xs leading-5 text-muted-foreground">{note}</CardFooter></Card>)}</div>}
+    <ChartAreaInteractive data={series} title="Temperatura dos motores" description="Média e máxima diária · °C" labels={{ desktop: "Média °C", mobile: "Máxima °C" }} stacked={false}/>
+    <div className="rounded-xl border bg-card py-6 shadow-xs">
+      <div className="mb-5 flex flex-wrap items-center gap-3 px-4 lg:px-6"><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar máquina…" aria-label="Buscar máquina" className="max-w-64"/><div className="flex flex-wrap gap-1">{["all", "Normal", "Atenção", "Crítico"].map((value) => <Button key={value} variant={condition === value ? "secondary" : "ghost"} size="sm" onClick={() => setCondition(value)}>{value === "all" ? "Todas" : value}</Button>)}</div><span className="ml-auto text-xs text-muted-foreground">{filtered.length} registros</span></div>
+      <DataTable data={filtered} labels={{ header: "Máquina", type: "RPM", status: "Condição", target: "Temperatura °C", limit: "Vibração mm/s", reviewer: "Data da leitura" }}/>
+    </div>
+  </div>
+}

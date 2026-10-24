@@ -1,0 +1,15 @@
+import { createLibrary, defineComponent } from "@openuidev/lang-core"
+import { z } from "zod/v4"
+
+export const MetricSpec = defineComponent({ name: "Metric", description: "Um indicador numérico obtido das funções de consulta, com unidade e legenda.", props: z.object({ label: z.string(), value: z.string(), note: z.string() }), component: null })
+export const DataResultSpec = defineComponent({ name: "DataResult", description: "Tabela shadcn filtrável dos registros de uma função já executada. Use o resultId exato retornado pela função; não copie as linhas.", props: z.object({ resultId: z.string(), title: z.string() }), component: null })
+export const ChartResultSpec = defineComponent({ name: "ChartResult", description: "Gráfico shadcn de uma função que retornou series. Use o resultId exato retornado pela função.", props: z.object({ resultId: z.string(), title: z.string() }), component: null })
+export const FollowUpSpec = defineComponent({ name: "FollowUp", description: "Botão que envia uma pergunta de continuação ao agente e executa as funções necessárias.", props: z.object({ label: z.string(), question: z.string() }), component: null })
+export const ChangeReviewSpec = defineComponent({ name:"ChangeReview",description:"Prévia de edição de uma leitura, com antes/depois e botão de confirmação. Use resultId de propose_telemetry_change. Sempre inclua este bloco para uma proposta de edição.",props:z.object({resultId:z.string()}),component:null })
+export const AnalysisSpec = defineComponent({ name: "Analysis", description: "Resposta principal da análise operacional: título, explicação Markdown baseada nas consultas e componentes interativos.", props: z.object({ title: z.string(), summary: z.string(), blocks: z.array(z.union([MetricSpec.ref, DataResultSpec.ref, ChartResultSpec.ref, FollowUpSpec.ref,ChangeReviewSpec.ref])) }), component: null })
+export const analysisSpec = createLibrary({ root: "Analysis", components: [AnalysisSpec, MetricSpec, DataResultSpec, ChartResultSpec, FollowUpSpec,ChangeReviewSpec] })
+export const analysisPrompt = analysisSpec.prompt({
+  toolCalls: false, bindings: false,
+  additionalRules: ["Escreva as respostas em português do Brasil.", "Nunca invente dados: consulte as funções antes de responder. Cite o período real da coleta.", "DataResult e ChartResult só podem referenciar resultId recebido de uma função neste turno atual.", "Use Markdown apenas dentro da propriedade summary. A resposta completa deve ser OpenUI Lang, sem cercas de código.", "No máximo seis blocos por resposta. Os limites de temperatura e vibração são critérios de triagem, não diagnóstico de falha."],
+  examples: ['root = Analysis("Resumo operacional", "Consultei a base de telemetria.", [metric, table, next])\nmetric = Metric("Leituras", "4000", "Base importada")\ntable = DataResult("call_example", "Leituras filtradas")\nnext = FollowUp("Investigar máquina", "Analise a máquina 22")'],
+})
