@@ -26,3 +26,14 @@ test("normal PRs target dev; same-repository promotion and hotfix target main", 
   assert.throws(() => checkPullRequest(pr("feat/42-filtro", "main")))
   assert.doesNotThrow(() => checkPullRequest({}))
 })
+
+test("Dependabot action updates are accepted only from the trusted same-repository bot", () => {
+  const repo = { full_name: "ompo-dev/Squad-Smart-Talent" }
+  const event = { pull_request: { title: "ci(deps): bump actions/checkout", user: { login: "dependabot[bot]" }, head: { ref: "dependabot/github_actions/actions/checkout-next", repo }, base: { ref: "dev", repo } } }
+  assert.doesNotThrow(() => checkPullRequest(event))
+  event.pull_request.user.login = "someone-else"
+  assert.throws(() => checkPullRequest(event))
+  event.pull_request.user.login = "dependabot[bot]"
+  event.pull_request.head.repo = { full_name: "other/fork" }
+  assert.throws(() => checkPullRequest(event))
+})
