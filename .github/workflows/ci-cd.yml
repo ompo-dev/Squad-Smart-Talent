@@ -78,7 +78,7 @@ jobs:
       - run: npm run build
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-reports-${{ github.run_id }}
           path: reports/
@@ -149,7 +149,7 @@ jobs:
           mkdir -p reports
           docker compose -f docker-compose.yml -f deploy/compose.ci.yml ps -a > reports/containers.txt
           docker compose -f docker-compose.yml -f deploy/compose.ci.yml logs --no-color > reports/containers.log 2>&1
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: container-logs-${{ github.run_id }}
