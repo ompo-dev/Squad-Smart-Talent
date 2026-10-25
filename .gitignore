@@ -7,3 +7,8 @@ work/
 generated/
 *.tsbuildinfo
 /public/swagger/
+
+reports/
+deploy/.env
+deploy/.env.dev
+deploy/.env.prod

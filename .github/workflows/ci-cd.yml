@@ -1,0 +1,173 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pipeline-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  conventions:
+    name: Contribution conventions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: node scripts/check-conventions.mjs
+      - run: npm run test:pipeline
+      - run: bash -n deploy/deploy.sh && bash tests/deploy.test.sh
+
+  quality:
+    name: Types, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: telemetry_ci
+          POSTGRES_USER: telemetry
+          POSTGRES_PASSWORD: ci-only-password
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U telemetry -d telemetry_ci"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      CI: 'true'
+      DATABASE_URL: postgresql://telemetry:ci-only-password@localhost:5432/telemetry_ci
+      REDIS_URL: redis://localhost:6379
+      NEXT_TELEMETRY_DISABLED: '1'
+      OBSERVABILITY_LOGS: 'off'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx prisma generate
+      - run: npx prisma validate
+      - run: npm run typecheck
+      - run: npm run db:migrate
+      - run: npm run db:seed:ci
+      - run: mkdir -p reports
+      - run: npm run test:ci
+      - run: npm run build
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-reports-${{ github.run_id }}
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  container:
+    name: Container integration and image
+    needs: [conventions, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.publish.outputs.image }}
+    env:
+      APP_IMAGE: telemetry-ci:${{ github.sha }}
+      COMPOSE_PROJECT_NAME: telemetry-ci
+      DEEPSEEK_API_KEY: ''
+      WEBHOOK_SECRET: ci-only-webhook-secret-at-least-32-characters
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - name: Build the image under test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          load: true
+          tags: ${{ env.APP_IMAGE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start the complete test stack
+        run: docker compose -f docker-compose.yml -f deploy/compose.ci.yml up --no-build --wait --wait-timeout 180
+      - name: Test HTTP, queue, worker, signatures, conflicts and WebSocket
+        run: docker compose -f docker-compose.yml -f deploy/compose.ci.yml exec -T web npm run test:e2e
+      - name: Authenticate to GHCR
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the same image that passed integration
+        id: publish
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+        env:
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${REPOSITORY,,}"
+          channel=dev
+          if [ "$SOURCE_BRANCH" = main ]; then channel=prod; fi
+          tag="$image:$channel-$SOURCE_SHA"
+          docker tag "$APP_IMAGE" "$tag"
+          docker push "$tag"
+          reference=$(docker image inspect "$tag" --format '{{json .RepoDigests}}' | jq -r --arg prefix "$image@sha256:" '.[] | select(startswith($prefix))' | head -n 1)
+          test -n "$reference"
+          printf 'image=%s\n' "$reference" >> "$GITHUB_OUTPUT"
+          printf '### Validated image\n`%s`\n' "$reference" >> "$GITHUB_STEP_SUMMARY"
+      - name: Collect container diagnostics
+        if: always()
+        run: |
+          mkdir -p reports
+          docker compose -f docker-compose.yml -f deploy/compose.ci.yml ps -a > reports/containers.txt
+          docker compose -f docker-compose.yml -f deploy/compose.ci.yml logs --no-color > reports/containers.log 2>&1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: container-logs-${{ github.run_id }}
+          path: reports/
+          retention-days: 7
+      - name: Remove disposable CI services and volumes
+        if: always()
+        run: docker compose -f docker-compose.yml -f deploy/compose.ci.yml down --volumes --remove-orphans
+
+  deploy:
+    name: Deploy environment
+    needs: container
+    if: github.event_name != 'pull_request' && needs.container.outputs.image != ''
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      image: ${{ needs.container.outputs.image }}
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: read

@@ -12,7 +12,12 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "data:import": "tsx scripts/ingest.ts",
     "worker": "tsx scripts/worker.ts",
-    "realtime": "tsx scripts/realtime.ts"
+    "realtime": "tsx scripts/realtime.ts",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test:pipeline": "node --test tests/pipeline.test.mjs",
+    "test:e2e": "tsx tests/docker-flow.ts",
+    "db:seed:ci": "node scripts/seed-ci.mjs",
+    "test:ci": "tsx --test --test-concurrency=1 --test-reporter=spec --test-reporter=junit --test-reporter-destination=stdout --test-reporter-destination=reports/tests.xml tests/*.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

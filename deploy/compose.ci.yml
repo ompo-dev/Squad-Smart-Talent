@@ -1,0 +1,14 @@
+# Overlay used only by disposable CI jobs. Never use it for a deployed environment.
+services:
+  web:
+    image: ${APP_IMAGE:?Set APP_IMAGE to the image under test}
+    environment:
+      REALTIME_PUBLIC_URL: ws://realtime:3002
+  worker:
+    image: ${APP_IMAGE:?Set APP_IMAGE}
+  realtime:
+    image: ${APP_IMAGE:?Set APP_IMAGE}
+    environment:
+      REALTIME_ALLOWED_ORIGINS: http://localhost:3000
+  ingest:
+    image: ${APP_IMAGE:?Set APP_IMAGE}

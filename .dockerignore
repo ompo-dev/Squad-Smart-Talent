@@ -7,3 +7,7 @@ work
 .env
 .env.local
 .env.*.local
+
+reports
+deploy/.env*
+!deploy/.env.example

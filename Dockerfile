@@ -1,19 +1,19 @@
-FROM oven/bun:1.2-alpine AS deps
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN bun install --frozen-lockfile || bun install
-
-FROM node:22-alpine AS build
+FROM node:22-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache openssl
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+FROM deps AS build
 COPY . .
-RUN node node_modules/@prisma/engines/scripts/postinstall.js && npm run build
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
 RUN apk add --no-cache openssl
-ENV NODE_ENV=production
-COPY --from=build /app ./
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+COPY --from=build --chown=node:node /app ./
+USER node
 EXPOSE 3000
-CMD ["sh", "-c", "npm run db:migrate && npm run start"]
+CMD ["sh", "-c", "npm run db:migrate && exec npm run start"]

@@ -1,0 +1,111 @@
+name: Deploy dev or prod
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      image:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment (use dev branch for dev, main for prod)
+        required: true
+        type: choice
+        options: [dev, prod]
+      image:
+        description: Previously validated ghcr.io/owner/repo@sha256 digest (also used for rollback)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.APP_URL }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - name: Validate target and deployment configuration
+        id: config
+        env:
+          TARGET: ${{ inputs.environment }}
+          SOURCE_REF: ${{ github.ref }}
+          IMAGE: ${{ inputs.image }}
+          REPOSITORY: ${{ github.repository }}
+          ENABLED: ${{ vars.DEPLOY_ENABLED }}
+          REMOTE_HOST: ${{ secrets.DEPLOY_HOST }}
+          REMOTE_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          RUNTIME_ENV: ${{ secrets.DEPLOY_ENV_FILE }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          SSH_PORT: ${{ vars.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET" == dev || "$TARGET" == prod ]]
+          if [[ "$TARGET" == prod ]]; then test "$SOURCE_REF" = refs/heads/main; else test "$SOURCE_REF" = refs/heads/dev; fi
+          expected="ghcr.io/${REPOSITORY,,}@sha256:"
+          [[ "$IMAGE" == "$expected"* && "${IMAGE#"$expected"}" =~ ^[0-9a-f]{64}$ ]]
+          if [[ "$ENABLED" != true ]]; then
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo '### Deploy not enabled' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Image validated/published; configure this Environment and set DEPLOY_ENABLED=true to deploy.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for variable in REMOTE_HOST REMOTE_USER SSH_KEY KNOWN_HOSTS RUNTIME_ENV DEPLOY_PATH; do
+            if [[ -z "${!variable}" ]]; then echo "::error::Missing deployment configuration: $variable"; exit 1; fi
+          done
+          [[ "$REMOTE_HOST" =~ ^[a-zA-Z0-9.-]+$ && "$REMOTE_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$DEPLOY_PATH" =~ ^/[a-zA-Z0-9_/-]+$ && "$DEPLOY_PATH" != / && "$DEPLOY_PATH" != *..* ]]
+          [[ "${SSH_PORT:-22}" =~ ^[0-9]+$ ]]
+          echo 'enabled=true' >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          persist-credentials: false
+      - name: Transfer release using pinned SSH host keys
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          REMOTE_HOST: ${{ secrets.DEPLOY_HOST }}
+          REMOTE_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          RUNTIME_ENV: ${{ secrets.DEPLOY_ENV_FILE }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          SSH_PORT: ${{ vars.DEPLOY_PORT }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ github.actor }}
+          IMAGE: ${{ inputs.image }}
+          TARGET: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key="$RUNNER_TEMP/deploy-key"
+          hosts="$RUNNER_TEMP/deploy-known-hosts"
+          runtime="$RUNNER_TEMP/runtime.env"
+          printf '%s\n' "$SSH_KEY" > "$key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$hosts"
+          printf '%s\n' "$RUNTIME_ENV" > "$runtime"
+          trap 'rm -f -- "$key" "$hosts" "$runtime"' EXIT
+          destination="$REMOTE_USER@$REMOTE_HOST"
+          port=${SSH_PORT:-22}
+          options=(-i "$key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$hosts" -o ConnectTimeout=15)
+          release="$DEPLOY_PATH/releases/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          ssh -p "$port" "${options[@]}" "$destination" "umask 077; mkdir -p '$release/docker-auth'; chmod 700 '$DEPLOY_PATH' '$DEPLOY_PATH/releases' '$release'"
+          scp -P "$port" "${options[@]}" deploy/compose.yml deploy/deploy.sh "$destination:$release/"
+          scp -P "$port" "${options[@]}" "$runtime" "$destination:$release/.env"
+          printf '%s' "$REGISTRY_TOKEN" | ssh -p "$port" "${options[@]}" "$destination" "DOCKER_CONFIG='$release/docker-auth' docker login ghcr.io --username '$REGISTRY_USER' --password-stdin"
+          ssh -p "$port" "${options[@]}" "$destination" "bash '$release/deploy.sh' '$DEPLOY_PATH' '$TARGET' '$IMAGE'"
+          printf '### Deployment completed\nEnvironment: **%s**\n\nImage: `%s`\n' "$TARGET" "$IMAGE" >> "$GITHUB_STEP_SUMMARY"

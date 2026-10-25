@@ -24,6 +24,7 @@ Este é o repositório do projeto **Squad Smart Talent**. A aplicação web, a A
 - [API e integrações](#api-e-integrações)
 - [Observabilidade](#observabilidade)
 - [Testes e validação](#testes-e-validação)
+- [CI/CD: desenvolvimento e produção](#cicd-desenvolvimento-e-produção)
 - [Operação e solução de problemas](#operação-e-solução-de-problemas)
 - [Limites atuais](#limites-atuais)
 
@@ -66,7 +67,7 @@ As telas usam os registros persistidos no PostgreSQL. A atualização em tempo r
 | Processamento assíncrono | **BullMQ**, worker e outbox transacional. |
 | Autenticação | **Better Auth**, com integração Google preparada. |
 | Contratos e validação | **Zod**, **OpenAPI** e **Swagger UI**. |
-| Execução | **Node.js 22**, scripts via `tsx` e **Docker Compose**. O Dockerfile usa Bun na instalação de dependências. |
+| Execução | **Node.js 22**, scripts via `tsx` e **Docker Compose**. O Dockerfile instala dependências com `npm ci`, usando o lockfile. |
 
 As dependências estão em [package.json](package.json), com lockfile em [package-lock.json](package-lock.json).
 
@@ -218,9 +219,14 @@ O comando `npm run build` já faz essa cópia automaticamente.
 | `npm run worker` | Processar a fila e publicar eventos pendentes. |
 | `npm run realtime` | Iniciar o gateway WebSocket, na porta 3002. |
 | `npm run test:agent` | Executar os arquivos `tests/*.test.ts` sequencialmente. |
+| `npm run typecheck` | Verificar os tipos TypeScript. |
+| `npm run test:pipeline` | Testar convenções e fixture sintética sem banco. |
+| `npm run test:ci` | Executar a suíte de aplicação com relatório JUnit em `reports/`. |
+| `npm run test:e2e` | Verificar a stack HTTP, worker e WebSocket em execução. |
+| `npm run db:seed:ci` | Alimentar uma base local descartável `telemetry_ci`, vazia e com `CI=true`. |
 | `npx tsc --noEmit --incremental false` | Verificar tipos sem emitir arquivos nem atualizar o cache incremental. |
 
-O script `npm run lint` ainda aponta para `next lint` e não tem configuração de ESLint neste repositório. Ele não deve ser considerado uma verificação pronta.
+O script legado `npm run lint` ainda aponta para `next lint` e não tem configuração de ESLint. A CI executa explicitamente `npm run typecheck`, validação do Prisma e testes; não apresenta essa checagem de tipos como lint de estilo.
 
 ## Variáveis de ambiente
 
@@ -447,11 +453,11 @@ Alguns componentes continuam diretamente em `components/`, e arquivos antigos re
 
 O fluxo adotado é: **issue para definir o trabalho, branch para implementar, commits para registrar mudanças e pull request para revisar antes de integrar à `main`**. Para ajustes pequenos e claros, como um erro de digitação, a issue é opcional.
 
-As regras abaixo são convenções de colaboração. Este repositório ainda não configura hooks para validar commits, templates de issues/PRs ou automações de revisão; a proteção da `main` depende das configurações no GitHub.
+As regras abaixo são convenções de colaboração. A CI valida títulos de PRs e nomes de branches. Há um template de PR em `.github/pull_request_template.md`; hooks locais e templates de issues ainda não estão configurados. Proteções de branches e aprovações de ambientes dependem das configurações no GitHub.
 
 ### Branches
 
-A `main` é a branch principal. Crie branches curtas a partir dela e abra o PR de volta para `main`. Cada branch deve resolver um objetivo; evite misturar correções independentes.
+A `dev` recebe o desenvolvimento e alimenta a homologação. A `main` representa produção. Crie branches curtas a partir de `dev`, abra PRs para `dev` e promova uma entrega com um PR de `dev` para `main`. Correções urgentes em `fix/` podem ir para `main`; depois, replique a correção em `dev`. Cada branch deve resolver um objetivo; evite misturar correções independentes.
 
 Use o formato:
 
@@ -476,8 +482,8 @@ Use letras minúsculas, números e hífens, sem espaços ou acentos. O número c
 Exemplo de criação da branch, com a árvore de trabalho limpa:
 
 ```bash
-git switch main
-git pull --ff-only origin main
+git switch dev
+git pull --ff-only origin dev
 git switch -c feat/42-filtro-por-maquina
 ```
 
@@ -566,7 +572,7 @@ Labels sugeridas para classificação: `bug`, `enhancement`, `documentation` e `
 
 ### Pull requests
 
-Abra um PR por objetivo, da sua branch para `main`. Use **Draft** enquanto a implementação estiver em andamento e marque como pronto quando a mudança estiver revisável.
+Abra um PR por objetivo, da sua branch para `dev`. Para publicar a entrega em produção, abra um PR de `dev` para `main`. Use **Draft** enquanto a implementação estiver em andamento e marque como pronto quando a mudança estiver revisável.
 
 O título segue Conventional Commits, por exemplo: `feat(telemetry): adicionar filtro por maquina`. No corpo, explique o problema, o comportamento resultante e como validou. Inclua capturas para mudanças visuais e exemplos de requisição/resposta para alterações de API.
 
@@ -635,6 +641,8 @@ Prefira **Squash and merge** para integrar uma entrega em um commit. Revise a me
 | [outputs/](outputs/) | Capturas da interface. |
 | [docker-compose.yml](docker-compose.yml) | Serviços, conexões internas, volumes e healthchecks. |
 | [Dockerfile](Dockerfile) | Instalação, build e imagem de execução. |
+| [.github/](.github/) | Pipelines CI/CD, atualização das actions e template de PR. |
+| [deploy/](deploy/) | Compose de execução, script de deploy e exemplo de configuração por ambiente. |
 
 As principais tabelas são `telemetry` para leituras; `chat_threads`, `chat_files` e `chat_runs` para o copiloto; `telemetry_changes` e `command_receipts` para auditoria/idempotência; `import_jobs` e `outbox_events` para processamento; `cache_revisions` e `trace_events` para consistência e observabilidade; e `auth_*` para o Better Auth.
 
@@ -720,11 +728,11 @@ Web, worker e realtime têm rotação de logs de 10 MB, com três arquivos. A in
 
 A suíte usa o executor do Node.js via `tsx`. Verifica consultas, importação, streaming, conversas, edições, concorrência, idempotência, rollback, traces, cache, OpenAPI, webhook e jobs.
 
-**Pré-requisitos da suíte completa:** PostgreSQL com migrações aplicadas, Redis acessível e a coleta original de demonstração importada. Alguns testes esperam exatamente **4.000 leituras, 24 máquinas e uma série de 14 dias**, incluindo dados da máquina 22. Esse CSV não está versionado; uma base vazia ou outro arquivo não satisfaz essas expectativas.
+**Pré-requisitos da suíte de integração:** PostgreSQL com migrações aplicadas, Redis acessível e uma base com **4.000 leituras, 24 máquinas e 14 dias**, incluindo alertas da máquina 22. A CI gera essa base com dados sintéticos, sem depender do CSV original. O comando `npm run db:seed:ci` exige `CI=true`, um banco local chamado `telemetry_ci` e a tabela de leituras vazia; recusa sobrescrever uma base existente.
 
 Os testes usam banco e Redis reais e criam registros temporários. Execute em um ambiente dedicado de desenvolvimento/teste, com o worker parado para evitar processamento das fixtures de fila. O provedor de IA é simulado; não é necessário consumir a API real.
 
-Com Docker e a coleta de teste preparada:
+Com Docker e uma base de teste compatível preparada:
 
 ```bash
 docker compose stop worker
@@ -746,6 +754,101 @@ npm run build
 ```
 
 Gere o cliente Prisma antes da checagem de tipos. `test:agent` inclui apenas `tests/*.test.ts`; auxiliares como `tests/docker-flow.ts` não fazem parte dessa execução automática.
+
+## CI/CD: desenvolvimento e produção
+
+A automação fica em [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml), com deploy reutilizável e manual em [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
+
+**CI** verifica se uma alteração está apta a ser integrada. **CD** publica a imagem validada e, quando o ambiente estiver configurado, instala essa versão no servidor.
+
+| Etapa | `dev` — homologação | `main` — produção |
+| --- | --- | --- |
+| Entrada normal | PR de uma branch `feat/`, `fix/`, `docs/` etc. | PR de promoção vindo de `dev`; `fix/` para correções urgentes. |
+| CI | Executada em PRs e pushes. | Executada em PRs e pushes. |
+| Publicação | Imagem GHCR com tag `dev-<commit>`. | Imagem GHCR com tag `prod-<commit>`. |
+| Deploy | GitHub Environment `dev`. | GitHub Environment `prod`. |
+| Dados e serviços | Projeto Compose `telemetry-dev`, com seus próprios volumes. | Projeto Compose `telemetry-prod`, com seus próprios volumes. |
+| Aprovação | Pode ser automática, conforme a configuração do Environment. | Configure revisores obrigatórios e permita apenas a branch `main`. |
+
+O fluxo normal é **branch de trabalho → PR para `dev` → homologação → PR de `dev` para `main` → produção**. Os ambientes não compartilham banco, volumes, senhas, URLs ou diretório de releases. A mesma receita de build é usada nos dois; cada branch publica sua imagem validada, e o deploy usa o digest exato dessa imagem. Promover código de `dev` para `main` executa novamente as verificações.
+
+### O que o pipeline executa
+
+1. Valida o título do PR no padrão Conventional Commits, a branch e seu destino. Não reescreve mensagens de commits locais.
+2. Executa testes das regras de contribuição e dos dados sintéticos, além de cenários de falha/recuperação do deploy com Docker simulado.
+3. Instala dependências com `npm ci`, gera e valida o Prisma e verifica os tipos.
+4. Sobe PostgreSQL e Redis temporários, aplica migrações e gera 4.000 leituras sintéticas para a suíte de integração.
+5. Executa os testes com relatório JUnit e compila a aplicação.
+6. Constrói a imagem Docker e sobe web, worker, gateway, PostgreSQL e Redis em uma stack descartável.
+7. Verifica HTTP, Swagger, assets, webhook assinado, conflitos de edição, idempotência, fila, retry, WebSocket e traces distribuídos.
+8. Em pushes para `dev` ou `main`, publica **a mesma imagem testada**, identificada por digest `sha256`. PRs não publicam imagens nem fazem deploy.
+9. Chama o deploy do ambiente, caso `DEPLOY_ENABLED=true` esteja configurado nele.
+
+O Dockerfile instala pelo lockfile e executa a aplicação como usuário `node`. As actions estão fixadas por SHA; o Dependabot propõe atualizações dessas referências em PRs para `dev`. Os relatórios de testes são retidos por 14 dias e os logs dos containers de CI por sete dias. Os bancos e volumes de CI são descartados ao terminar.
+
+### Ativação dos ambientes
+
+A publicação no GHCR usa o `GITHUB_TOKEN` da execução, com `packages: write` no job correspondente. Autorize o GitHub Actions a criar pacotes no repositório/organização. Os builds de PR não precisam de credenciais de deploy.
+
+Para a instalação remota, prepare um servidor **Linux x86-64** com Docker Engine, Docker Compose v2 com suporte a `--wait`, Bash, gzip e acesso SSH. O usuário de deploy precisa conseguir executar Docker e escrever no diretório escolhido. O workflow não provisiona uma máquina, DNS ou certificado TLS.
+
+Em **Settings → Environments**, configure `dev` e `prod` separadamente:
+
+| Tipo | Nome | Conteúdo |
+| --- | --- | --- |
+| Variable | `DEPLOY_ENABLED` | `true` para habilitar a instalação; ausente ou outro valor mantém somente CI e publicação. |
+| Variable | `DEPLOY_PATH` | Caminho absoluto exclusivo do ambiente, sem espaços, pontos ou barra final; exemplo: `/srv/telemetryos/dev` ou `/srv/telemetryos/prod`. |
+| Variable | `DEPLOY_PORT` | Porta SSH; padrão 22. |
+| Variable | `APP_URL` | URL pública do dashboard, usada no link do Environment. |
+| Secret | `DEPLOY_HOST` | Hostname ou IPv4 do servidor SSH. |
+| Secret | `DEPLOY_USER` | Usuário SSH. |
+| Secret | `DEPLOY_SSH_KEY` | Chave privada autorizada nesse usuário. |
+| Secret | `DEPLOY_KNOWN_HOSTS` | Entrada `known_hosts` da chave do servidor, conferida por um canal confiável; inclua a porta no formato SSH quando não for 22. |
+| Secret | `DEPLOY_ENV_FILE` | Conteúdo completo do `.env` de execução, baseado em [deploy/.env.example](deploy/.env.example). |
+
+O segredo `DEPLOY_ENV_FILE` deve ter valores próprios por ambiente: senha PostgreSQL e `DATABASE_URL` correspondente, URL HTTP pública, URL WSS pública, origens permitidas e credenciais opcionais de IA, login e webhook. Use uma senha de banco hexadecimal para evitar caracteres que precisariam de escape na URL.
+
+Se os ambientes usam a mesma máquina, escolha portas diferentes: por exemplo, web/realtime **3100/3102 em dev** e **3000/3002 em prod**. Essas portas são publicadas apenas em `127.0.0.1`. Configure um proxy reverso no host com HTTPS/WSS, upgrade WebSocket e streaming SSE. PostgreSQL e Redis não expõem portas no arquivo de deploy.
+
+> **Ativação pendente de infraestrutura:** o código dos pipelines não fornece host, chaves SSH, domínios nem credenciais. Sem `DEPLOY_ENABLED=true`, o job registra que o deploy não foi habilitado; uma imagem publicada não significa que uma aplicação foi instalada. Com o deploy habilitado, a falta de configuração faz a execução falhar explicitamente.
+
+O ambiente `prod` deve aceitar somente `main`; `dev`, somente `dev`. Configure proteção de branches com os checks **Contribution conventions**, **Types, tests and build** e **Container integration and image**, revisão de PRs e bloqueio de pushes diretos conforme a política da squad. Esses controles administrativos precisam ser habilitados no GitHub; os arquivos não os ativam automaticamente.
+
+### Instalação, migração e recuperação
+
+[deploy/compose.yml](deploy/compose.yml) define a stack de execução, separada do Compose local. [deploy/deploy.sh](deploy/deploy.sh) recebe o ambiente e o digest, valida a configuração e:
+
+1. Baixa a imagem antes de substituir os processos em execução.
+2. Aguarda PostgreSQL e Redis e grava um backup PostgreSQL comprimido antes da migração.
+3. Para o worker e aplica as migrações em um container específico, uma única vez por execução de deploy.
+4. Atualiza web, worker e gateway e aguarda os healthchecks, exigindo banco e Redis saudáveis.
+5. Registra a release atual e a anterior; se a nova aplicação falhar, tenta restaurar a imagem/configuração da release anterior e marca o deploy como falho.
+
+A autenticação no GHCR é temporária e o script faz logout ao terminar. Chaves de host SSH são verificadas; não há descoberta automática de confiança. Dois deploys do mesmo Environment não executam simultaneamente pelo workflow.
+
+Os diretórios `releases/` e `backups/` permanecem sob `DEPLOY_PATH`. Cada release tem configuração sensível e permissões restritas. Defina retenção, monitore espaço e copie backups para um destino externo ao servidor. O pipeline não remove backups nem volumes de ambientes implantados.
+
+**Rollback da aplicação não desfaz migrações do banco.** Use migrações compatíveis com a versão anterior, no modelo expandir/migrar/contrair. Se uma migração falhar, confira o estado Prisma antes de repetir; não há reset automático nem restauração silenciosa de backup. A substituição dos containers também pode causar uma breve interrupção: este fluxo não implementa blue/green nem garante indisponibilidade zero.
+
+### Reexecução e rollback manual
+
+Em **Actions → Deploy dev or prod → Run workflow**, selecione a branch correspondente ao ambiente e informe o digest de uma imagem anteriormente validada/publicada:
+
+```text
+ghcr.io/ompo-dev/squad-smart-talent@sha256:<64-caracteres-hexadecimais>
+```
+
+Use a branch `dev` para o ambiente `dev`, ou `main` para `prod`. O workflow rejeita combinações diferentes e imagens fora do pacote do próprio repositório. A execução manual usa o mesmo fluxo, backup, migrações e healthchecks; antes de reverter, confirme a compatibilidade do schema com a imagem escolhida.
+
+Para verificar os testes independentes de banco localmente:
+
+```bash
+npm run test:pipeline
+```
+
+A suíte de aplicação e a integração Docker continuam dependendo dos serviços descritos em [Testes e validação](#testes-e-validação). Os cenários do script de deploy rodam na CI com `bash tests/deploy.test.sh`.
+
+Referências: [GitHub Actions](https://docs.github.com/en/actions), [workflows reutilizáveis](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows) e [build de imagens](https://github.com/docker/build-push-action).
 
 ## Operação e solução de problemas
 
@@ -779,7 +882,7 @@ O PostgreSQL usa o volume `telemetry_pg`, e o Redis, `telemetry_redis`, sob o pr
 | Webhook retorna 401 | Compare segredo, timestamp e corpo assinado; use o script de envio como referência. |
 | Webhook retorna 503 | Configure `WEBHOOK_SECRET` com pelo menos 32 caracteres no servidor. |
 | Healthcheck retorna `degraded` | O banco está acessível, mas o Redis não está pronto. Leituras podem funcionar; fila e eventos dependem do Redis. |
-| Testes falham nas contagens da frota | Confirme a coleta original e uma base de teste sem leituras extras; a suíte tem expectativas fixas. |
+| Testes falham nas contagens da frota | Use a fixture sintética em um banco descartável `telemetry_ci` ou uma coleta compatível, sem leituras extras. |
 
 ## Limites atuais
 
@@ -789,4 +892,4 @@ O PostgreSQL usa o volume `telemetry_pg`, e o Redis, `telemetry_redis`, sob o pr
 - **Dados:** as telas representam o conteúdo recebido no PostgreSQL. Conectores de sensores precisam alimentar essa base.
 - **Anexos:** a extração de texto não inclui OCR e não equivale a importar telemetria.
 - **Eventos:** WebSocket exige gateway ativo e Redis acessível. Ao reconectar, o cliente consulta a API para recuperar o estado.
-- **Qualidade automatizada:** a suíte completa depende de uma coleta externa, e o lint ainda precisa de configuração.
+- **Qualidade automatizada:** a CI usa fixture sintética e testa tipos, contratos, aplicação e containers; lint de estilo ainda precisa de configuração.
