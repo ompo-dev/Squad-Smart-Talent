@@ -8,6 +8,8 @@ import { AnalysisMessage,ChangeReviewCard } from "@/components/openui/analysis-m
 import { MarkdownMessage } from "@/components/markdown-message"
 import type { ToolResult } from "@/lib/chat-types"
 import {ChatComposer} from "@/components/organisms/chat-composer"
+import {ChatAttachmentsProvider,ChatFileDropzone} from "@/components/organisms/chat-attachments"
+import {ImportReviewCard} from "@/components/organisms/import-review-card"
 import {commandFetch} from "@/lib/client/command-fetch"
 import {tracedChatFetch} from "@/lib/client/traced-chat-fetch"
 import {useTraceStore} from "@/lib/stores/trace-store"
@@ -40,7 +42,7 @@ const AssistantAnswer:AssistantMessageComponent=({message,isStreaming})=>{
   },[messages,message.id])
   const content=message.content??"",ask=(question:string)=>{void processMessage({role:"user",content:question})}
   const openui=/^\s*root\s*=/.test(content)
-  return <div className="min-w-0 space-y-4 py-2">{openui?<AnalysisMessage content={content} results={results} onAsk={ask} busy={busy} isStreaming={isStreaming}/>:<MarkdownMessage content={content}/>} {!isStreaming&&!content.includes("ChangeReview(")&&results.filter(r=>r.data.change).map(r=><ChangeReviewCard key={r.id} change={r.data.change!}/>)}</div>
+  return <div className="min-w-0 space-y-4 py-2">{openui?<AnalysisMessage content={content} results={results} onAsk={ask} busy={busy} isStreaming={isStreaming}/>:<MarkdownMessage content={content}/>} {!isStreaming&&!content.includes("ChangeReview(")&&results.filter(r=>r.data.change).map(r=><ChangeReviewCard key={r.id} change={r.data.change!}/>)}{!isStreaming&&(!openui||!/\bImportReview\s*\(/.test(content))&&results.filter(result=>result.data.importPreview).map(result=><ImportReviewCard key={result.id} preview={result.data.importPreview!} disabled={busy}/>)}</div>
 }
 
 function NewConversation() {
@@ -49,7 +51,7 @@ function NewConversation() {
 }
 function WelcomeIntro() {
   const send=useThread(s=>s.processMessage),running=useThread(s=>s.isRunning)
-  return <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-3 px-6 py-6 text-center"><BrainCircuit className="size-10 text-primary"/><h2 className="text-2xl font-semibold tracking-tight">O que vamos investigar?</h2><p className="max-w-md text-sm leading-6 text-muted-foreground">Explore sua telemetria, consulte anexos e revise alterações em uma conversa.</p><div className="mt-3 grid w-full gap-3 sm:grid-cols-3">{starters.map(starter=><Button key={starter.displayText} variant="outline" disabled={running} className="h-auto min-h-16 whitespace-normal px-4 py-4" onClick={()=>void send({role:"user",content:starter.prompt})}>{starter.displayText}</Button>)}</div></div>
+  return <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-3 px-6 py-6 text-center"><BrainCircuit className="size-10 text-primary"/><h2 className="text-2xl font-semibold tracking-tight">O que vamos investigar?</h2><p className="max-w-md text-sm leading-6 text-muted-foreground">Arraste arquivos para analisar, adicionar leituras ou revisar alterações. O copiloto organiza os dados em tabelas, indicadores e gráficos.</p><div className="mt-3 grid w-full gap-3 sm:grid-cols-3">{starters.map(starter=><Button key={starter.displayText} variant="outline" disabled={running} className="h-auto min-h-16 whitespace-normal px-4 py-4" onClick={()=>void send({role:"user",content:starter.prompt})}>{starter.displayText}</Button>)}</div></div>
 }
 function LegacyHistoryMigration() {
   const reload=useThreadList(s=>s.loadThreads)
@@ -64,11 +66,11 @@ function LegacyHistoryMigration() {
 }
 
 export function CopilotPage() {
-  return <div className="telemetry-agent h-[calc(100dvh-212px)] min-h-[420px] overflow-hidden rounded-2xl border bg-background"><AgentInterface llm={llm} storage={storage} agentName="Copiloto de dados" components={{AssistantMessage:AssistantAnswer,UserMessage:UserBubble}} starters={starters} starterVariant="card" scrollVariant="always" theme={{mode:"light"}}>
+  return <ChatAttachmentsProvider><ChatFileDropzone className="telemetry-agent h-[calc(100dvh-212px)] min-h-[420px] overflow-hidden rounded-2xl border bg-background"><AgentInterface llm={llm} storage={storage} agentName="Copiloto de dados" components={{AssistantMessage:AssistantAnswer,UserMessage:UserBubble}} starters={starters} starterVariant="card" scrollVariant="always" theme={{mode:"light"}}>
     <LegacyHistoryMigration/>
     <AgentInterface.Sidebar><AgentInterface.SidebarHeader agentName={<span className="openui-agent-sidebar-header__agent-name">Conversas</span>}/><AgentInterface.SidebarContent><div className="px-3 pb-4"><NewConversation/></div><AgentInterface.ThreadList/></AgentInterface.SidebarContent><AgentInterface.SidebarFooter><p className="px-3 py-2 text-xs text-muted-foreground">Conversas salvas no PostgreSQL</p></AgentInterface.SidebarFooter></AgentInterface.Sidebar>
-    <AgentInterface.ThreadHeader end={<span className="text-xs text-muted-foreground">Base importada · ferramentas ativas</span>}/>
+    <AgentInterface.ThreadHeader end={<span className="text-xs text-muted-foreground">Base de telemetria · ferramentas ativas</span>}/>
     <AgentInterface.Welcome><WelcomeIntro/></AgentInterface.Welcome>
     <AgentInterface.Composer><ChatComposer/></AgentInterface.Composer>
-  </AgentInterface></div>
+  </AgentInterface></ChatFileDropzone></ChatAttachmentsProvider>
 }

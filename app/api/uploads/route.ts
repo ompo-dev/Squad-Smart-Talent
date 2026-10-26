@@ -1,11 +1,12 @@
 import {tracedRoute} from "@/lib/observability/server"
 import {executeCommand,payloadHash,CommandConflict} from "@/lib/application/command-bus"
+import {ATTACHMENT_EXTENSIONS,MAX_ATTACHMENT_BYTES,fileExtension} from "@/lib/attachment-policy"
 export const runtime="nodejs"
 async function handlePOST(request:Request) {
   const form=await request.formData().catch(()=>null),file=form?.get("file")
-  if(!(file instanceof File)||file.size>5*1024*1024||!file.size) return Response.json({error:"Selecione um arquivo de até 5 MB"},{status:400})
-  const extension=file.name.split(".").pop()?.toLowerCase()
-  if(!["csv","txt","md","json","pdf","xlsx"].includes(extension??"")) return Response.json({error:"Formatos aceitos: CSV, TXT, MD, JSON, PDF com texto e XLSX"},{status:400})
+  if(!(file instanceof File)||file.size>MAX_ATTACHMENT_BYTES||!file.size) return Response.json({error:"Selecione um arquivo de até 5 MB"},{status:400})
+  const extension=fileExtension(file.name)
+  if(!(ATTACHMENT_EXTENSIONS as readonly string[]).includes(extension)) return Response.json({error:"Formatos aceitos: CSV, TXT, MD, JSON, PDF com texto e XLSX"},{status:400})
   try {
     let content=""
     if(extension==="pdf") {
@@ -18,6 +19,8 @@ async function handlePOST(request:Request) {
       await book.xlsx.load(await file.arrayBuffer())
       let cells=0
       book.eachSheet((sheet)=>{content+=`\nPlanilha: ${sheet.name}\n`;sheet.eachRow((row)=>{cells+=row.cellCount;if(cells>100000) throw new Error("Planilha muito grande");content+=JSON.stringify(row.values)+"\n"})})
+    } else if(extension==="json"){
+      try{content=JSON.stringify(JSON.parse((await file.text()).replace(/^\uFEFF/,"")),null,2)}catch{throw new Error("JSON inválido. Corrija o arquivo antes de anexar.")}
     } else content=await file.text()
     if(!content.trim()) throw new Error("Arquivo sem texto legível. PDFs digitalizados precisam de OCR antes do envio.")
     if(content.length>1500000) throw new Error("O conteúdo extraído excede 1,5 milhão de caracteres")

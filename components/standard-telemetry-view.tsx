@@ -25,7 +25,7 @@ export function StandardTelemetryView({ rows:initialRows, series:initialSeries, 
   return <div className="@container/main flex min-w-0 flex-col gap-6">
     <div className="flex items-center justify-end gap-3">{error&&<p role="alert" className="text-sm text-destructive">{error}</p>}<Button variant="outline" disabled={loading} onClick={()=>void load(mode)}>{loading?"Atualizando…":"Atualizar leituras"}</Button></div>
     {stats && <div className="grid gap-4 sm:grid-cols-2 @5xl/main:grid-cols-4">{[
-      ["Máquinas monitoradas", String(stats.machines), "Ativos presentes no arquivo"],
+      ["Máquinas monitoradas", String(stats.machines), "Ativos presentes na base de telemetria"],
       ["Temperatura média", `${stats.temperature} °C`, "Média das leituras registradas"],
       ["Leituras em alerta", String(stats.alerts), "Temperatura > 100 °C ou vibração > 4,5 mm/s"],
       ["Leituras disponíveis", stats.readings.toLocaleString("pt-BR"), "Base de telemetria no PostgreSQL"],

@@ -1,7 +1,8 @@
 "use client"
 import * as React from "react"
 import { Renderer, createLibrary, defineComponent, type OpenUIError } from "@openuidev/react-lang"
-import { AnalysisSpec, ChartResultSpec, DataResultSpec, FollowUpSpec, MetricSpec,ChangeReviewSpec } from "@/lib/openui-schema"
+import { AnalysisSpec, ChartResultSpec, DataResultSpec, FollowUpSpec, MetricSpec,ChangeReviewSpec,ImportReviewSpec } from "@/lib/openui-schema"
+import {ImportReviewCard} from "@/components/organisms/import-review-card"
 import { DataTable } from "@/components/data-table"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -18,7 +19,7 @@ const Metric = defineComponent({ ...MetricSpec, component: ({ props }) => <Card 
 const DataResult = defineComponent({ ...DataResultSpec, component: ({ props }) => {
   const result = useResult(props.resultId)
   if (!result || result.data.error) return <p className="text-sm text-muted-foreground">Resultado indisponível para esta tabela.</p>
-  const readings = ["query_telemetry","get_alerts"].includes(result.name)
+  const readings = ["query_telemetry","get_alerts","analyze_uploaded_telemetry"].includes(result.name)
   const rows = (result.data.rows ?? []).map((row, index) => readings ? {
     id: Number(row.id_leitura), header: `Máquina #${row.id_maquina} · leitura ${row.id_leitura}`, type: String(row.rpm ?? "Ausente"), status: Number(row.temp_motor_c) > 100 || Number(row.vibracao_mm_s) > 4.5 ? "Crítico" : Number(row.temp_motor_c) > 90 ? "Atenção" : "Normal", target: String(row.temp_motor_c ?? "Ausente"), limit: String(row.vibracao_mm_s ?? "Ausente"), reviewer: new Date(String(row.data_hora)).toLocaleString("pt-BR", {timeZone:"UTC"}),
   } : { id: index + 1, header: String(row.grupo ?? index + 1), type: String(row.leituras ?? ""), status: "Calculado", target: String(row.media ?? "Ausente"), limit: String(row.maxima ?? "Ausente"), reviewer: String(result.args.metric ?? "") })
@@ -42,7 +43,8 @@ export function ChangeReviewCard({change}:{change:NonNullable<ToolResult["data"]
   return <Card className="border-amber-200"><CardHeader className="space-y-3"><CardTitle>Revisar alteração · leitura #{change.readingId}</CardTitle><CardDescription>Campo: {change.field}. A alteração será registrada no banco com os valores antes e depois.</CardDescription><ChangeValues before={change.before} after={change.after} optimistic={saving}/><Button disabled={saving||status!=="pending"} onClick={()=>void confirm(change.id,change.after)} className="w-fit">{saving?"Salvando…":status==="applied"?"Alteração salva":"Confirmar e salvar alteração"}</Button>{error&&<p role="alert" className="text-sm text-destructive">{error}</p>}</CardHeader></Card>
 }
 const ChangeReview=defineComponent({...ChangeReviewSpec,component:({props})=>{const change=useResult(props.resultId)?.data.change;return change?<ChangeReviewCard change={change}/>:null}})
-const library = createLibrary({ root: "Analysis", components: [Analysis, Metric, DataResult, ChartResult, FollowUp,ChangeReview] })
+const ImportReview=defineComponent({...ImportReviewSpec,component:({props})=>{const preview=useResult(props.resultId)?.data.importPreview,context=React.useContext(ResultContext);return preview?<ImportReviewCard preview={preview} disabled={context.busy}/>:null}})
+const library = createLibrary({ root: "Analysis", components: [Analysis, Metric, DataResult, ChartResult, FollowUp,ChangeReview,ImportReview] })
 
 export function AnalysisMessage({ content, results, onAsk, busy,isStreaming=false }: { content: string; results: ToolResult[]; onAsk: (question:string)=>void; busy: boolean;isStreaming?:boolean }) {
   const [failed, setFailed] = React.useState(false)

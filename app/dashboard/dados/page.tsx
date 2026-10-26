@@ -1,9 +1,21 @@
 import {PageShell} from "@/components/page-shell"
-import {Card,CardHeader,CardTitle,CardDescription,CardContent} from "@/components/ui/card"
-import {DataImportForm} from "@/components/organisms/data-import-form"
+import {DataSourcesWorkspace} from "@/components/organisms/data-sources-workspace"
 import {prisma} from "@/lib/prisma"
 export const dynamic="force-dynamic"
 export default async function Page() {
- const count=await prisma.telemetry.count()
- return <PageShell title="Fontes de dados" description="Importe coletas e acompanhe a origem das leituras."><div className="grid gap-5 lg:grid-cols-3"><Card><CardHeader><CardDescription>PostgreSQL · Prisma ORM</CardDescription><CardTitle className="text-3xl">{count.toLocaleString("pt-BR")}</CardTitle><CardDescription>Leituras na base</CardDescription></CardHeader></Card><Card className="lg:col-span-2"><CardHeader><CardTitle>Importar CSV de telemetria</CardTitle><CardDescription>Normalização e validação em TypeScript, sem serviço Python.</CardDescription></CardHeader><CardContent><DataImportForm/></CardContent></Card></div></PageShell>
+ const [telemetry,lastImportJob,lastCsv,lastWebhook]=await Promise.all([
+   prisma.telemetry.aggregate({_count:{_all:true},_max:{timestamp:true}}),
+   prisma.importJob.findFirst({where:{status:"completed"},orderBy:{updatedAt:"desc"},select:{id:true,filename:true}}),
+   prisma.commandReceipt.findFirst({where:{type:"telemetry.import-csv"},orderBy:{createdAt:"desc"},select:{id:true,createdAt:true}}),
+   prisma.commandReceipt.findFirst({where:{type:"telemetry.webhook"},orderBy:{createdAt:"desc"},select:{createdAt:true}}),
+ ])
+ return <PageShell title="Fontes de dados" description="Traga leituras por arquivos, APIs e webhooks. Acompanhe os recebimentos e a atualização automática dos painéis.">
+   <DataSourcesWorkspace
+     readings={telemetry._count._all}
+     lastReadingAt={telemetry._max.timestamp?.toISOString()??null}
+     lastImport={lastCsv?{filename:lastImportJob&&lastCsv.id===`telemetry.import-csv:job-${lastImportJob.id}`?lastImportJob.filename:null,at:lastCsv.createdAt.toISOString()}:null}
+     lastWebhookAt={lastWebhook?.createdAt.toISOString()??null}
+     webhookEnabled={(process.env.WEBHOOK_SECRET?.length??0)>=32}
+   />
+ </PageShell>
 }

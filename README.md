@@ -2,7 +2,7 @@
 
 **Entenda a condição de uma frota industrial, investigue leituras e converse com os dados.**
 
-O TelemetryOS transforma dados de sensores em um painel de operação. Você importa leituras de máquinas, acompanha temperatura, vibração e outros indicadores, identifica valores fora dos limites e usa um copiloto de IA para investigar a base em linguagem natural.
+O TelemetryOS transforma dados de sensores em um painel de operação. Você recebe leituras de máquinas por arquivos e integrações, acompanha temperatura, vibração e outros indicadores, identifica valores fora dos limites e usa um copiloto de IA para investigar a base e analisar anexos em linguagem natural.
 
 Este é o repositório do projeto **Squad Smart Talent**. A aplicação web, a API, o importador e os processos de apoio são escritos em TypeScript.
 
@@ -37,8 +37,9 @@ Este é o repositório do projeto **Squad Smart Talent**. A aplicação web, a A
 | Visão geral e frota | Consultar a última leitura de cada máquina, indicadores e gráficos. |
 | Alertas | Localizar leituras com temperatura acima de **100 °C** ou vibração acima de **4,5 mm/s**. |
 | Relatórios | Visualizar a série diária e até 200 leituras recentes. |
-| Fontes de dados | Importar CSVs, normalizar valores e acompanhar o resultado da carga. |
-| Copiloto IA | Fazer perguntas, consultar sensores, gerar tabelas e gráficos e pesquisar anexos. |
+| Fontes de dados | Importar CSVs, consultar recebimentos por arquivo/webhook e acompanhar o estado real da atualização dos painéis. A conexão com APIs externas depende de um conector para a fonte escolhida. |
+| Copiloto IA | Fazer perguntas, arrastar arquivos para análise e apresentar tabelas, indicadores e gráficos. |
+| Importação pelo chat | Preparar CSV, XLSX ou JSON, conferir a prévia normalizada e confirmar a adição de novas leituras. IDs existentes são preservados. |
 | Edição auditada | Corrigir um sensor de uma leitura com controle de versão e registro de antes/depois. No copiloto, a gravação exige confirmação do usuário. |
 | Importações em fila | Acompanhar processamento, tentativas, resultados e reenvio de jobs com falha. |
 | Atualizações em tempo real | Receber avisos de mudanças e recarregar os dados de outros clientes conectados. |
@@ -105,11 +106,12 @@ O Compose configura as conexões internas com PostgreSQL e Redis. Google e webho
 ### 3. Suba os serviços
 
 ```bash
-docker compose up --build -d
+docker compose build web
+docker compose up -d
 docker compose ps
 ```
 
-O primeiro build instala dependências e compila a aplicação. O serviço web aplica as migrações antes de iniciar. Worker e gateway de eventos aguardam a aplicação ficar saudável.
+O primeiro build instala dependências e compila a aplicação. Gere a imagem de `web` antes de subir os serviços: worker e gateway reutilizam essa imagem local. O serviço web aplica as migrações antes de iniciar, e os processos de apoio aguardam a aplicação ficar saudável.
 
 | Endereço | Finalidade |
 | --- | --- |
@@ -127,6 +129,10 @@ O primeiro build instala dependências e compila a aplicação. O serviço web a
 3. Clique em **Importar leituras**. Arquivos maiores entram na fila; acompanhe em **Importações**.
 4. Consulte **Visão geral**, **Frota**, **Alertas** e **Relatórios**.
 5. Com a chave DeepSeek configurada, abra **Copiloto IA** e pergunte: “Quais máquinas têm leituras em alerta?” ou “Mostre a temperatura média por dia”.
+
+**Fontes de dados** reúne arquivos CSV, APIs externas e webhooks, com a data da última coleta, os últimos recebimentos e o estado real da conexão de atualização dos painéis. O recebimento por webhook já existe e exige `WEBHOOK_SECRET`; consultar periodicamente uma API externa ainda depende de um conector com endereço, autenticação, frequência e mapeamento definidos para a fonte escolhida. A conexão WebSocket atualiza as telas quando novas leituras chegam à base; a frequência das medições depende do sistema de origem.
+
+No **Copiloto IA**, você pode arrastar até três arquivos de 5 MB para qualquer parte do chat ou usar **Anexar arquivo**. **Analisar arquivos** consulta o conteúdo sem gravar leituras. **Adicionar leituras** prepara CSV, XLSX ou JSON de telemetria: reconhece cabeçalhos equivalentes, separadores vírgula/ponto e vírgula/tabulação, números brasileiros e datas ISO ou brasileiras. O chat mostra uma amostra, duplicatas e erros; **Confirmar importação** inicia o processamento em fila. IDs já existentes são preservados. PDFs com texto, TXT e Markdown ficam disponíveis para análise; campos ausentes ou ambíguos precisam ser corrigidos antes da importação. Fórmulas de planilhas usam somente o resultado já armazenado no arquivo.
 
 | Tela | Caminho |
 | --- | --- |
@@ -287,7 +293,7 @@ id_leitura,id_maquina,data_hora,temp_motor_c,pressao_oleo_psi,rpm,vibracao_mm_s,
 2,24,2026-10-24 12:05:00,101.2,41,1250,4.8,12.5,1500.1
 ```
 
-O separador é **vírgula**. Valores com vírgula decimal precisam estar entre aspas, por exemplo `"78,4"`. Datas aceitam `AAAA-MM-DD HH:mm[:ss]` ou `DD/MM/AAAA HH:mm[:ss]`, com espaço ou `T` entre data e hora. No CSV, use esses formatos sem sufixo de fuso; o importador os interpreta como UTC.
+O separador é **vírgula**. Valores com vírgula decimal precisam estar entre aspas, por exemplo `"78,4"`. Datas aceitam `AAAA-MM-DD HH:mm[:ss]` ou `DD/MM/AAAA HH:mm[:ss]`, com espaço ou `T` entre data e hora; sem fuso explícito, são interpretadas como UTC. Timestamps ISO 8601 completos com `Z` ou deslocamento de fuso também são aceitos, preservando milissegundos. No chat, arquivos separados por ponto e vírgula ou tabulação são normalizados antes da importação.
 
 ### Regras da carga
 
@@ -340,14 +346,35 @@ O chat combina **DeepSeek**, que interpreta a pergunta e solicita ferramentas, c
 | `get_alerts` | Consultar alertas com os critérios fixos de temperatura e vibração. |
 | `search_uploaded_file` | Ler ou pesquisar texto literal de um anexo, com referências às linhas. |
 | `propose_telemetry_change` | Preparar a alteração de um sensor de uma leitura. |
+| `analyze_uploaded_telemetry` | Normalizar e analisar um anexo de telemetria, retornando indicadores, amostra e série diária sem importar leituras. |
+| `prepare_telemetry_import` | Validar um anexo e preparar o cartão de revisão da importação, sem gravar leituras. |
 
-As consultas usam parâmetros validados, transações somente de leitura e timeout SQL de cinco segundos. Consultas de leituras retornam até 200 linhas. São permitidas até oito chamadas de ferramentas por turno; o agente não recebe ferramentas de SQL livre nem de execução de comandos do sistema.
+As consultas à base de telemetria usam parâmetros validados, transações somente de leitura e timeout SQL de cinco segundos. Consultas de leituras retornam até 200 linhas. São permitidas até oito chamadas de ferramentas por turno; o agente não recebe ferramentas de SQL livre nem de execução de comandos do sistema.
 
 ### Anexos e correções
 
-O composer aceita até **três anexos por mensagem**, de até **5 MiB por arquivo**: CSV, XLSX, PDF com texto, TXT, MD e JSON. O texto extraído fica em `chat_files`. PDFs digitalizados precisam passar por OCR antes do envio.
+Arraste arquivos para qualquer parte do chat ou use **Anexar arquivo**. São aceitos até **três anexos por mensagem**, de até **5 MiB por arquivo**: CSV, XLSX, JSON, PDF com texto, TXT e Markdown. O texto extraído fica em `chat_files`, limitado a 1,5 milhão de caracteres por arquivo. PDFs digitalizados precisam passar por OCR antes do envio.
 
-**Anexar um arquivo ao chat não importa suas linhas para a telemetria.** Para alimentar o dashboard, use **Fontes de dados** ou a API de importação.
+O envio apresenta erros por arquivo, aceita os arquivos válidos de uma seleção mista e evita anexar o mesmo arquivo novamente. Uploads em andamento são cancelados ao trocar de conversa. Soltar ou anexar arquivos prepara o conteúdo para a conversa; a inclusão de leituras na base depende do fluxo abaixo.
+
+| Ação | Comportamento |
+| --- | --- |
+| **Analisar arquivos** | Consulta o anexo sem importar leituras. Em CSV, XLSX e JSON de telemetria, calcula indicadores sobre todas as leituras válidas, com tabela de até 50 linhas e gráfico de temperatura dos até 200 dias mais recentes. |
+| **Adicionar leituras** | Prepara uma prévia de CSV, XLSX ou JSON com amostra de até cinco leituras, contagens de linhas válidas, duplicadas e inválidas e exemplos de erros. |
+| **Confirmar importação** | Envia o arquivo normalizado à fila. O cartão acompanha o processamento e apresenta quantas leituras foram adicionadas, já existiam ou foram ignoradas. Repetir a confirmação reutiliza o mesmo processamento. |
+
+Para importar no chat:
+
+1. Anexe um **CSV, XLSX ou JSON** com as nove colunas de telemetria.
+2. Escolha **Adicionar leituras** ou peça na mensagem: “Prepare a importação deste arquivo”.
+3. Confira o cartão **Revisar novas leituras**, incluindo amostra, datas, valores ausentes e erros.
+4. Clique em **Confirmar importação** e acompanhe o resultado no cartão ou em **Importações**.
+
+A normalização reconhece cabeçalhos equivalentes em português/inglês, como `id_leitura`/`id` e `id_maquina`/`machineId`; separadores vírgula, ponto e vírgula ou tabulação; números com vírgula decimal; datas brasileiras e timestamps ISO 8601. JSON pode conter uma lista de objetos ou um objeto com `readings`, `leituras`, `data` ou `dados`. No XLSX, abas auxiliares são ignoradas e fórmulas usam somente o resultado já armazenado no arquivo.
+
+Colunas obrigatórias ausentes ou ambíguas impedem a importação; o agente explica o problema para correção. Linhas inválidas e IDs repetidos são contabilizados, e IDs existentes no banco são preservados. Datas sem fuso são interpretadas como UTC; o cartão de revisão exibe horários de Brasília. PDF, TXT e Markdown permanecem disponíveis para análise.
+
+O cartão de importação usa **ImportReview**; o agente prepara a prévia, e somente a confirmação inicia o processamento. Conteúdo de anexos é tratado como dado não confiável, nunca como instrução para o sistema. Indicadores de um anexo são apresentados como resultados daquele arquivo, sem misturá-los com as contagens da base persistida.
 
 Para corrigir uma leitura, informe seu ID e o campo desejado. A IA prepara uma proposta com valor anterior, novo valor e motivo. A alteração só é gravada ao confirmar no cartão. Propostas expiram em 24 horas; alterações concorrentes exigem uma nova revisão.
 
@@ -657,6 +684,7 @@ O contrato completo fica em [Swagger](http://localhost:3000/docs), com JSON em [
 | `GET` | `/api/telemetry/view?mode=latest` | Última leitura por máquina; também aceita `alerts` e `readings`. |
 | `GET` / `PATCH` | `/api/telemetry/records/{id}` | Consultar uma leitura ou editar um sensor com versão esperada. |
 | `POST` | `/api/import` | Importar CSV multipart no campo `file`. |
+| `POST` | `/api/import/attachment` | Preparar, confirmar ou consultar a importação de um anexo do chat. |
 | `GET` | `/api/jobs` e `/api/jobs/{id}` | Listar jobs ou consultar estado e resultado. |
 | `POST` | `/api/jobs/{id}/retry` | Reenviar uma importação com falha. |
 | `POST` | `/api/chat` | Conversa persistida com streaming SSE. |
@@ -670,6 +698,21 @@ O contrato completo fica em [Swagger](http://localhost:3000/docs), com JSON em [
 | `GET` | `/api/auth/status` | Verificar se o login está configurado. |
 
 O Swagger também documenta criação, leitura, renomeação, exclusão e importação de conversas. `/api/ai` e `/api/dashboard` são rotas de compatibilidade; novas integrações devem preferir `/api/chat` e `/api/telemetry/view`.
+
+### Importação de anexos pela API
+
+Envie o arquivo no campo multipart `file` de `POST /api/uploads` e use o `id` retornado em `POST /api/import/attachment`. O corpo aceita até **4 KiB**:
+
+```json
+{
+  "action": "preview",
+  "fileId": "UUID retornado pelo upload"
+}
+```
+
+A prévia retorna `hash`, contagens e uma amostra das leituras normalizadas. Após a revisão, envie `action: "confirm"`, o mesmo `fileId` e o valor de `hash` no campo `previewHash`. Para acompanhar, use `action: "status"` com `fileId` e `previewHash`.
+
+`preview` não grava leituras; `confirm` envia uma importação à fila e responde **202** enquanto estiver aguardando ou processando. Confirmações repetidas reutilizam o mesmo job. Uma prévia que não corresponda ao arquivo recebe **409**. O resultado concluído informa leituras inseridas, existentes, duplicadas e inválidas. O fluxo do chat usa os mesmos endpoints, com confirmação no cartão.
 
 ### Exemplo: consultar e corrigir uma leitura
 
@@ -726,7 +769,7 @@ Web, worker e realtime têm rotação de logs de 10 MB, com três arquivos. A in
 
 ## Testes e validação
 
-A suíte usa o executor do Node.js via `tsx`. Verifica consultas, importação, streaming, conversas, edições, concorrência, idempotência, rollback, traces, cache, OpenAPI, webhook e jobs.
+A suíte usa o executor do Node.js via `tsx`. Verifica consultas, importação, streaming, conversas, edições, concorrência, idempotência, rollback, traces, cache, OpenAPI, webhook e jobs. [tests/chat-attachments.test.ts](tests/chat-attachments.test.ts) cobre limites de anexos, normalização de CSV/XLSX/JSON, datas com fuso, fórmulas armazenadas, arquivos malformados, prévias sem gravação, confirmação idempotente e renderização do contrato `ImportReview`. Também verifica que indicadores usam o arquivo completo mesmo quando tabela e gráfico são limitados.
 
 **Pré-requisitos da suíte de integração:** PostgreSQL com migrações aplicadas, Redis acessível e uma base com **4.000 leituras, 24 máquinas e 14 dias**, incluindo alertas da máquina 22. A CI gera essa base com dados sintéticos, sem depender do CSV original. O comando `npm run db:seed:ci` exige `CI=true`, um banco local chamado `telemetry_ci` e a tabela de leituras vazia; recusa sobrescrever uma base existente.
 
@@ -870,8 +913,12 @@ O PostgreSQL usa o volume `telemetry_pg`, e o Redis, `telemetry_redis`, sob o pr
 | Sintoma | O que verificar |
 | --- | --- |
 | Docker não conecta ao daemon | Inicie o Docker Desktop/serviço Docker e confirme o uso de containers Linux. |
+| Primeiro início tenta baixar `d-a-web` e retorna `pull access denied` | Execute `docker compose build web` antes de `docker compose up -d`; worker e gateway usam a imagem local da aplicação. |
 | Porta 3000, 3002 ou 5432 ocupada | Verifique outros serviços ou outra stack do projeto antes de iniciar. |
 | Dashboard vazio | Importe uma coleta em **Fontes de dados**; o projeto não inclui o CSV original nem faz carga automática. |
+| Arquivo anexado sem novas leituras no painel | No chat, escolha **Adicionar leituras** e confirme no cartão. A análise de anexos consulta o arquivo sem gravar leituras. |
+| Prévia indica campos ausentes ou ambíguos | Confira as nove colunas de telemetria e remova colunas duplicadas que representem o mesmo campo. Arquivos sem essa estrutura continuam disponíveis para análise. |
+| API externa não atualiza a base | Defina a origem e implemente o conector com endereço, autenticação, frequência e mapeamento; a tela ainda não cadastra nem consulta APIs automaticamente. |
 | Copiloto indisponível | Confira chave, modelo e logs de `web`. Chave recusada, saldo insuficiente e limite do provedor geram erros próprios. |
 | Importação permanece na fila | Confira worker, Redis, `/api/jobs/health` e logs. Reenvie pelo painel se o job estiver em falha. |
 | CSV rejeitado | Confira cabeçalhos, separador, datas, extensão e tamanho; consulte os erros no resultado. |
@@ -890,6 +937,7 @@ O PostgreSQL usa o volume `telemetry_pg`, e o Redis, `telemetry_redis`, sob o pr
 - **Configurações:** a página apresenta áreas previstas; ainda não permite salvar limites operacionais, canais de notificação ou credenciais.
 - **Alertas:** os limiares são fixos e indicam triagem. A aplicação não implementa diagnóstico preditivo nem controle físico das máquinas.
 - **Dados:** as telas representam o conteúdo recebido no PostgreSQL. Conectores de sensores precisam alimentar essa base.
-- **Anexos:** a extração de texto não inclui OCR e não equivale a importar telemetria.
+- **Anexos:** PDF, TXT e Markdown são usados para análise; PDFs digitalizados exigem OCR prévio. A importação de CSV, XLSX e JSON requer as nove colunas, uma prévia válida e confirmação. Fórmulas de planilhas não são recalculadas.
+- **APIs externas:** o painel apresenta a opção de integração, mas a consulta periódica depende de um conector para a fonte escolhida. O recebimento de leituras por webhook assinado já está implementado.
 - **Eventos:** WebSocket exige gateway ativo e Redis acessível. Ao reconectar, o cliente consulta a API para recuperar o estado.
 - **Qualidade automatizada:** a CI usa fixture sintética e testa tipos, contratos, aplicação e containers; lint de estilo ainda precisa de configuração.
