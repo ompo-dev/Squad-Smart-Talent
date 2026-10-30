@@ -1,0 +1,25 @@
+﻿id_maquina;pontos_prioridade;prioridade;leituras;alertas_sensor;alertas_por_100_leituras;leituras_incompletas_pct;temperatura_maxima_c;alertas_por_100_sem1;alertas_por_100_sem2;tendencia;acima_media_alertas;acima_media_incompletas;atingiu_temperatura_critica;taxa_em_alta
+22;4;Alta - inspecionar com urgência;175;3;1.71;8.0;105.0;0.0;3.23;Piorando;1;1;1;1
+9;3;Alta - inspecionar com urgência;183;6;3.28;5.46;100.5;2.47;3.92;Piorando;1;0;1;1
+11;3;Alta - inspecionar com urgência;180;2;1.11;7.22;94.8;0.0;2.27;Piorando;1;1;0;1
+21;2;Média - agendar inspeção;175;5;2.86;7.43;97.0;5.68;0.0;Melhorando;1;1;0;0
+19;2;Média - agendar inspeção;170;3;1.76;7.65;95.5;3.53;0.0;Melhorando;1;1;0;0
+7;2;Média - agendar inspeção;155;1;0.65;8.39;104.1;1.49;0.0;Melhorando;0;1;1;0
+12;2;Média - agendar inspeção;157;1;0.64;7.01;93.5;0.0;1.45;Piorando;0;1;0;1
+5;1;Baixa - monitorar;179;6;3.35;6.7;95.1;5.83;0.0;Melhorando;1;0;0;0
+1;1;Baixa - monitorar;147;0;0.0;8.16;93.0;0.0;0.0;Estável;0;1;0;0
+18;1;Baixa - monitorar;147;0;0.0;7.48;98.9;0.0;0.0;Estável;0;1;0;0
+2;1;Baixa - monitorar;162;0;0.0;6.79;95.3;0.0;0.0;Estável;0;1;0;0
+23;1;Baixa - monitorar;180;0;0.0;7.78;96.9;0.0;0.0;Estável;0;1;0;0
+4;1;Baixa - monitorar;167;0;0.0;8.38;94.7;0.0;0.0;Estável;0;1;0;0
+6;1;Baixa - monitorar;156;0;0.0;7.69;96.3;0.0;0.0;Estável;0;1;0;0
+8;1;Baixa - monitorar;161;0;0.0;9.94;95.1;0.0;0.0;Estável;0;1;0;0
+10;0;Baixa - monitorar;179;0;0.0;6.7;95.2;0.0;0.0;Estável;0;0;0;0
+13;0;Baixa - monitorar;187;0;0.0;4.81;95.6;0.0;0.0;Estável;0;0;0;0
+14;0;Baixa - monitorar;200;0;0.0;5.5;99.2;0.0;0.0;Estável;0;0;0;0
+15;0;Baixa - monitorar;158;0;0.0;5.7;93.6;0.0;0.0;Estável;0;0;0;0
+16;0;Baixa - monitorar;140;0;0.0;5.0;95.8;0.0;0.0;Estável;0;0;0;0
+17;0;Baixa - monitorar;156;0;0.0;4.49;98.2;0.0;0.0;Estável;0;0;0;0
+20;0;Baixa - monitorar;156;0;0.0;6.41;93.8;0.0;0.0;Estável;0;0;0;0
+24;0;Baixa - monitorar;166;0;0.0;6.02;93.8;0.0;0.0;Estável;0;0;0;0
+3;0;Baixa - monitorar;164;0;0.0;4.27;94.7;0.0;0.0;Estável;0;0;0;0

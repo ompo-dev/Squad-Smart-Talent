@@ -1,0 +1,4 @@
+﻿turno;leituras;superaquecimentos;pressoes_baixas;vibracoes_altas;total_alertas_sensor;ocorrencias_por_100_leituras;leituras_com_alerta;pct_leituras_com_alerta;leituras_incompletas;pct_leituras_incompletas;temperatura_media_c
+A;1348;5;0;8;13;0.96;13;0.96;90;6.68;86.2
+B;1335;1;0;10;11;0.82;11;0.82;85;6.37;84.0
+C;1317;0;0;3;3;0.23;3;0.23;96;7.29;70.0

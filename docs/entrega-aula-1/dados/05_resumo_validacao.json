@@ -1,0 +1,16 @@
+{
+  "arquivo_csv": "telemetria_suja.csv",
+  "sha256": "e43f7c17e324e056133b14bd420cd56b34ebaa4c300d7dc8db4188a82f8e8610",
+  "linhas_brutas": 4060,
+  "duplicadas_identicas": 60,
+  "leituras_limpa": 4000,
+  "maquinas": 24,
+  "ocorrencias": 298,
+  "superaquecimentos": 6,
+  "pressao_baixa": 0,
+  "vibracao_alta": 21,
+  "leituras_incompletas": 271,
+  "inicio": "2026-05-01 00:00:00",
+  "fim": "2026-05-14 23:30:00",
+  "fk_violacoes": 0
+}
