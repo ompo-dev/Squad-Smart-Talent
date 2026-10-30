@@ -8,7 +8,7 @@ export type ToolResult = {
   id: string
   name: string
   args: Record<string, unknown>
-  data: { rows?: Record<string, unknown>[]; series?: { date: string; desktop: number; mobile: number }[]; summary?: Record<string, unknown>; columns?: string[]; description?: string; error?: string; importPreview?:TelemetryImportPreview; change?: {id:string;readingId:number;field:string;before:number|null;after:number|null;status:string} }
+  data: { rows?: Record<string, unknown>[]; series?: { date: string; desktop: number; mobile: number }[]; summary?: Record<string, unknown>; columns?: string[]; description?: string; error?: string; importPreview?:TelemetryImportPreview; change?: {id:string;readingId:number;field:string;before:number|null;after:number|null;status:string}; academicSpec?: Record<string, unknown> }
 }
 export type ChatMessage = { id: string; role: "user" | "assistant"; content: string; format?: "openui" | "markdown"; tools?: ToolResult[]; error?: boolean }
 export type ChatEvent =

@@ -224,3 +224,13 @@ test("instrumentação do cliente preserva streaming sem esperar o texto complet
    assert.equal(ended,true);assert.ok(useTraceStore.getState().parents[userId])
  }finally{release();globalThis.fetch=previous;useTraceStore.setState({parents:{}})}
 })
+
+test("especificação acadêmica entrega as 5 consultas SQLite sem SELECT * e o modelo relacional ER", async () => {
+  const result = await executeAgentTool("get_theme_academic_spec", { topic: "all" })
+  const spec = result.academicSpec as { tema: string; consultas: { sql: string }[]; modelo: { mermaidDiagram: string }; checklist: { itens_obrigatorios: unknown[] } }
+  assert.equal(spec.tema, "Manufatura e Eficiência (OEE)")
+  assert.equal(spec.consultas?.length, 5)
+  assert.ok(spec.consultas?.every((q) => !q.sql.includes("SELECT *")))
+  assert.ok(spec.modelo?.mermaidDiagram?.includes("erDiagram"))
+  assert.ok(spec.checklist?.itens_obrigatorios?.length >= 4)
+})

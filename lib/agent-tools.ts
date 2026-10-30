@@ -22,6 +22,7 @@ export const agentTools = [
   tool("propose_telemetry_change", "Prepara a edição de UM sensor de UMA leitura específica. Só use se o usuário pediu edição explicitamente. Consulte antes query_telemetry para identificar id_leitura correto. Nunca escolha uma leitura ambígua. NÃO salva a mudança: retorna proposta que exige confirmação no cartão ChangeReview.",{reading_id:{type:"integer"},field:{type:"string",enum:["temp_motor_c","pressao_oleo_psi","rpm","vibracao_mm_s","consumo_l_h","horas_motor"]},value:{type:["number","null"]},reason:{type:"string"}},["reading_id","field","value","reason"]),
   tool("prepare_telemetry_import","Prepara uma prévia de importação de um anexo CSV, XLSX ou JSON quando o usuário pede adicionar leituras. Reconhece cabeçalhos equivalentes, separadores e formatos de data/número; valida as nove colunas. Não grava leituras. Mostre ImportReview com o resultId retornado e aguarde a confirmação no cartão. Nunca use para simples análise de anexo.",{file_id:{type:"string"}},["file_id"]),
   tool("analyze_uploaded_telemetry","Analisa um CSV, XLSX ou JSON de telemetria anexado sem importar dados. Calcula indicadores sobre todas as leituras válidas, gera série diária para ChartResult e até 50 linhas para DataResult. Identifica duplicatas e linhas inválidas. Para arquivos sem as nove colunas de telemetria, use search_uploaded_file.",{file_id:{type:"string"}},["file_id"]),
+  tool("get_theme_academic_spec","Retorna a especificação acadêmica do tema OEE da Aula 1: 5 consultas SQL SQLite sem SELECT *, modelo relacional ER (Mermaid) e checklist do Sábado 2.",{topic:{type:"string",enum:["all","sql_queries","relational_model","sabado2_checklist"]}}),
 ]
 export async function readQuery(sql: string, values: unknown[] = []) {
   return withSpan("telemetry.query","postgres",()=>prisma.$transaction(async tx=>{
@@ -43,6 +44,12 @@ function where(input: z.infer<typeof filters>) {
   return { sql: clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "", values }
 }
 export async function executeAgentTool(name: string, args: unknown,context?:{idempotencyKey:string}): Promise<ToolResult["data"]> {
+  if(name==="get_theme_academic_spec"){
+    const input=z.object({topic:z.enum(["all","sql_queries","relational_model","sabado2_checklist"]).default("all")}).parse(args??{})
+    const {getAcademicDelivery}=await import("@/lib/academic-deliverables")
+    const spec=getAcademicDelivery(input.topic)
+    return {academicSpec:spec as unknown as Record<string,unknown>,description:"Especificação acadêmica oficial do tema Manufatura e Eficiência (OEE) · Smart Talent John Deere"}
+  }
   if(name==="analyze_uploaded_telemetry"){
     const input=z.object({file_id:z.string().uuid()}).strict().parse(args)
     return (await import("@/lib/application/attachment-import")).analyzeAttachmentTelemetry(input.file_id)
