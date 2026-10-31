@@ -1,4 +1,4 @@
-﻿turno;leituras;superaquecimentos;pressoes_baixas;vibracoes_altas;total_alertas_sensor;ocorrencias_por_100_leituras;leituras_com_alerta;pct_leituras_com_alerta;leituras_incompletas;pct_leituras_incompletas;temperatura_media_c
-A;1348;5;0;8;13;0.96;13;0.96;90;6.68;86.2
-B;1335;1;0;10;11;0.82;11;0.82;85;6.37;84.0
-C;1317;0;0;3;3;0.23;3;0.23;96;7.29;70.0
+assembly_line;leituras;paradas;taxa_parada_pct;temperatura_refrigerante_media_c;temperatura_refrigerante_maxima_c;vibracao_spindle_media_um;leituras_incompletas;pct_leituras_incompletas
+Shopfloor-L1;874;454;51.95;18.81;36.5;0.996;48;5.49
+Shopfloor-L3;818;415;50.73;18.62;35.6;1.012;35;4.28
+Shopfloor-L2;808;396;49.01;18.22;98.2;1.023;47;5.82

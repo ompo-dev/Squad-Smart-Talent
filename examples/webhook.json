@@ -1,16 +1,24 @@
 {
-  "eventId": "example-machine-24-reading-9990001",
+  "eventId": "example-makino-l1-2026-06-20",
   "readings": [
     {
-      "id": 9990001,
-      "machineId": 24,
-      "timestamp": "2026-10-24T12:00:00.000Z",
-      "temperature": 78.4,
-      "oilPressure": 42,
-      "rpm": 1200,
-      "vibration": 2.1,
-      "consumption": 12,
-      "engineHours": 1500
+      "date": "2026-06-20T12:00:00.000Z",
+      "machine_id": "Makino-L1-Unit1-2013",
+      "assembly_line": "Shopfloor-L1",
+      "hydraulic_pressure_bar": 142.5,
+      "coolant_pressure_bar": 5.4,
+      "air_system_pressure_bar": 6.2,
+      "coolant_temperature_c": 24.8,
+      "hydraulic_oil_temperature_c": 52.1,
+      "spindle_bearing_temperature_c": 40.3,
+      "spindle_vibration_um": 1.42,
+      "tool_vibration_um": 32.7,
+      "spindle_speed_rpm": 21400,
+      "voltage_v": 412,
+      "torque_nm": 38.6,
+      "cutting_kn": 12.4,
+      "downtime": false,
+      "downtime_label": "No_Machine_Failure"
     }
   ]
 }

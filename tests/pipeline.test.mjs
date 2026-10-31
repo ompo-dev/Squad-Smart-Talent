@@ -5,11 +5,11 @@ import { validBranch, validCommitTitle, checkPullRequest } from "../scripts/chec
 
 test("CI fixture satisfies integration contracts without external data", () => {
   const rows = ciReadings()
-  assert.equal(rows.length, 4000)
-  assert.equal(new Set(rows.map(row => row[0])).size, 4000)
-  assert.equal(new Set(rows.map(row => row[1])).size, 24)
-  assert.equal(new Set(rows.map(row => row[2].toISOString().slice(0, 10))).size, 14)
-  assert.ok(rows.some(row => row[1] === 22 && row[3] >= 100))
+  assert.equal(rows.length, 2500)
+  assert.equal(new Set(rows.map(row => row.record_key)).size, 2500)
+  assert.equal(new Set(rows.map(row => row.machine_id)).size, 3)
+  assert.equal(new Set(rows.map(row => row.date.toISOString().slice(0, 10))).size, 164)
+  assert.ok(rows.some(row => row.machine_id === "Makino-L1-Unit1-2013" && row.coolant_temperature_c >= 46))
 })
 test("commit and branch rules accept conventions and reject ambiguous input", () => {
   for (const title of ["feat(api): adicionar filtro", "fix!: alterar contrato", "docs: melhorar guia"]) assert.ok(validCommitTitle(title))

@@ -4,7 +4,7 @@ import axios from "axios"
 import {useRouter} from "next/navigation"
 import {Button} from "@/components/atoms"
 import {FileUp} from "lucide-react"
-type ImportResult={inserted:number;existing:number;duplicates:number;invalid:number;errors:string[]}
+type ImportResult={inserted:number;existing:number;duplicates:number;invalid:number;errors:string[];quality?:{repairedCells:number;outlierCells:number;missingLabels:number;rowsWithoutSensors:number}}
 export function DataImportForm(){
  const picker=React.useRef<HTMLInputElement>(null),requestId=React.useRef(crypto.randomUUID()),router=useRouter()
  const [file,setFile]=React.useState<File|null>(null),[busy,setBusy]=React.useState(false),[result,setResult]=React.useState<ImportResult|null>(null),[error,setError]=React.useState("")
@@ -28,9 +28,9 @@ export function DataImportForm(){
  return <div className="space-y-4">
    <input type="file" accept=".csv" aria-label="Arquivo CSV de telemetria" ref={picker} className="hidden" onChange={event=>{setFile(event.target.files?.[0]??null);requestId.current=crypto.randomUUID();setResult(null);setError("")}}/>
    <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>picker.current?.click()} disabled={busy}><FileUp className="size-4"/>{file?file.name:"Selecionar CSV"}</Button>{file&&<Button onClick={()=>void upload()} disabled={busy}>{busy?"Enviando…":"Importar leituras"}</Button>}</div>
-   <p className="text-xs text-muted-foreground">Até 5 MB. Arquivos maiores são processados em fila. Leituras existentes são preservadas, incluindo edições realizadas no chat.</p>
+   <p className="text-xs text-muted-foreground">Até 5 MB. Arquivos maiores são processados em fila. O sistema padroniza cabeçalhos, datas e números, corrige células sujas e deduplica registros idênticos. Dados existentes são preservados.</p>
    {jobId&&<div role="status" className="rounded-xl border bg-muted/40 p-4 text-sm"><p>{jobStatus==="running"?"Processando leituras…":"Arquivo na fila de importação"}</p><a className="text-xs underline" href="/dashboard/jobs">Acompanhar importações</a></div>}
-   {result&&<div role="status" className="rounded-xl border bg-muted/40 p-4 text-sm"><p>{result.inserted} inseridas · {result.existing} já existentes · {result.duplicates} duplicadas no arquivo · {result.invalid} inválidas</p>{result.errors.map(item=><p key={item} className="mt-1 text-xs">{item}</p>)}</div>}
+   {result&&<div role="status" className="rounded-xl border bg-muted/40 p-4 text-sm"><p>{result.inserted} inseridas · {result.existing} já existentes · {result.duplicates} duplicadas no arquivo · {result.invalid} inválidas</p>{result.quality&&<p className="mt-1 text-xs text-muted-foreground">{result.quality.repairedCells} células corrigidas · {result.quality.outlierCells} outliers sinalizados · {result.quality.rowsWithoutSensors} linhas sem sensores</p>}{result.errors.map(item=><p key={item} className="mt-1 text-xs">{item}</p>)}</div>}
    {error&&<p role="alert" className="text-sm text-destructive">{error}</p>}
  </div>
 }
