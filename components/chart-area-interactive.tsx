@@ -3,7 +3,6 @@
 import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
-import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Card,
   CardAction,
@@ -147,22 +146,14 @@ export function ChartAreaInteractive({ data = chartData, title = "Total Visitors
   labels?: { desktop: string; mobile: string }
   stacked?: boolean
 }) {
-  const isMobile = useIsMobile()
-  const [timeRange, setTimeRange] = React.useState("90d")
-
-  React.useEffect(() => {
-    if (isMobile) {
-      setTimeRange("7d")
-    }
-  }, [isMobile])
+  const [timeRange, setTimeRange] = React.useState("all")
 
   const filteredData = data.filter((item) => {
+    if (timeRange === "all") return true
     const date = new Date(item.date)
     const referenceDate = new Date(data[data.length - 1]?.date ?? "2026-05-14")
-    let daysToSubtract = 90
-    if (timeRange === "30d") {
-      daysToSubtract = 30
-    } else if (timeRange === "7d") {
+    let daysToSubtract = 30
+    if (timeRange === "7d") {
       daysToSubtract = 7
     }
     const startDate = new Date(referenceDate)
@@ -187,7 +178,7 @@ export function ChartAreaInteractive({ data = chartData, title = "Total Visitors
             variant="outline"
             className="hidden *:data-[slot=toggle-group-item]:px-4! @[767px]/card:flex"
           >
-            <ToggleGroupItem value="90d">Todo o período</ToggleGroupItem>
+            <ToggleGroupItem value="all">Todo o período</ToggleGroupItem>
             <ToggleGroupItem value="30d">30 dias</ToggleGroupItem>
             <ToggleGroupItem value="7d">7 dias</ToggleGroupItem>
           </ToggleGroup>
@@ -200,7 +191,7 @@ export function ChartAreaInteractive({ data = chartData, title = "Total Visitors
               <SelectValue>{timeRange === "7d" ? "Últimos 7 dias" : timeRange === "30d" ? "Últimos 30 dias" : "Todo o período"}</SelectValue>
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="90d" className="rounded-lg">
+              <SelectItem value="all" className="rounded-lg">
                 Todo o período
               </SelectItem>
               <SelectItem value="30d" className="rounded-lg">

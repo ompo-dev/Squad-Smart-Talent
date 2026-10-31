@@ -4,7 +4,7 @@ export type TelemetryImportResult={received:number;valid:number;inserted:number;
 export type AttachmentImportStatus={status:"pending"|"queued"|"running"|"completed"|"failed";jobId?:string;result?:TelemetryImportResult;error?:string}
 export type TelemetryImportPreview={
   fileId:string;name:string;hash:string;received:number;valid:number;duplicates:number;invalid:number;errors:string[];quality:TelemetryQualitySummary
-  sample:{recordKey:string;machineId:string;assemblyLine:string;timestamp:string;status:string;coolantTemperature:number|null;spindleVibration:number|null;downtime:boolean|null}[]
+  sample:{recordKey:string;machineId:string;assemblyLine:string;timestamp:string;status:string;hydraulicPressure:number|null;coolantPressure:number|null;airSystemPressure:number|null;coolantTemperature:number|null;hydraulicOilTemperature:number|null;spindleBearingTemperature:number|null;spindleVibration:number|null;toolVibration:number|null;spindleSpeed:number|null;voltage:number|null;torque:number|null;cutting:number|null;downtime:boolean|null;downtimeLabel:string|null;qualityIssues:string[]}[]
 }
 export type ToolResult = {
   id: string

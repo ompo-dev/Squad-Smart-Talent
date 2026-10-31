@@ -36,7 +36,7 @@ Este é o repositório do projeto **Squad Smart Talent**. A aplicação web, a A
 | --- | --- |
 | Visão geral e frota | Consultar a última leitura de cada máquina, indicadores e gráficos. |
 | Alertas | Localizar leituras com temperatura acima de **100 °C** ou vibração acima de **4,5 mm/s**. |
-| Relatórios | Visualizar a série diária e até 200 leituras recentes. |
+| Relatórios | Visualizar a série diária e todas as leituras disponíveis, com todas as colunas. |
 | Fontes de dados | Importar CSVs, consultar recebimentos por arquivo/webhook e acompanhar o estado real da atualização dos painéis. A conexão com APIs externas depende de um conector para a fonte escolhida. |
 | Copiloto IA | Fazer perguntas, arrastar arquivos para análise e apresentar tabelas, indicadores e gráficos. |
 | Importação pelo chat | Preparar CSV, XLSX ou JSON, conferir a prévia normalizada e confirmar a adição de novas leituras. Registros idênticos são deduplicados por `record_key`. |
@@ -127,7 +127,7 @@ O primeiro build instala dependências e compila a aplicação. Gere a imagem de
 1. Abra **Fontes de dados**, em `/dashboard/dados`.
 2. Selecione o CSV `data/machine_downtime.csv` ou um arquivo com as colunas descritas em [Formato e importação dos dados](#formato-e-importação-dos-dados).
 3. Clique em **Importar leituras**. Arquivos maiores entram na fila; acompanhe em **Importações**.
-4. Consulte **Visão geral**, **Frota**, **Alertas** e **Relatórios**.
+4. Consulte **Visão geral**, **Frota**, **Alertas** e **Relatórios**. As tabelas mostram todas as leituras e todas as colunas do CSV: data, máquina, linha, 12 sensores, parada, rótulo original, qualidade, record key e versão, com busca, filtros, ordenação e paginação.
 5. Com a chave DeepSeek configurada, abra **Copiloto IA** e pergunte: “Quais máquinas têm leituras em alerta?” ou “Mostre a temperatura média por dia”.
 
 **Fontes de dados** reúne arquivos CSV, APIs externas e webhooks, com a data da última coleta, os últimos recebimentos e o estado real da conexão de atualização dos painéis. O recebimento por webhook já existe e exige `WEBHOOK_SECRET`; consultar periodicamente uma API externa ainda depende de um conector com endereço, autenticação, frequência e mapeamento definidos para a fonte escolhida. A conexão WebSocket atualiza as telas quando novas leituras chegam à base; a frequência das medições depende do sistema de origem.
@@ -369,7 +369,7 @@ O envio apresenta erros por arquivo, aceita os arquivos válidos de uma seleçã
 
 | Ação | Comportamento |
 | --- | --- |
-| **Analisar arquivos** | Consulta o anexo sem importar leituras. Em CSV, XLSX e JSON de manutenção, aplica a mesma limpeza, calcula indicadores sobre todas as leituras válidas, com tabela de até 50 linhas e gráfico da temperatura do refrigerante dos até 200 dias mais recentes. |
+| **Analisar arquivos** | Consulta o anexo sem importar leituras. Em CSV, XLSX e JSON de manutenção, aplica a mesma limpeza, calcula indicadores sobre todas as leituras válidas, com tabela de até 50 linhas e gráfico da temperatura do refrigerante de todo o período. |
 | **Adicionar leituras** | Prepara uma prévia de CSV, XLSX ou JSON com amostra de até cinco leituras, contagens de linhas válidas, duplicadas e inválidas e exemplos de erros. |
 | **Confirmar importação** | Envia o arquivo normalizado à fila. O cartão acompanha o processamento e apresenta quantas leituras foram adicionadas, já existiam ou foram ignoradas. Repetir a confirmação reutiliza o mesmo processamento. |
 
@@ -691,7 +691,7 @@ O contrato completo fica em [Swagger](http://localhost:3000/docs), com JSON em [
 
 | Método | Endpoint | Finalidade |
 | --- | --- | --- |
-| `GET` | `/api/telemetry/view?mode=latest` | Última leitura por máquina; também aceita `alerts` e `readings`. |
+| `GET` | `/api/telemetry/view?mode=latest` | Última leitura por máquina; `alerts` e `readings` retornam todas as leituras com todos os sensores, parada, qualidade, record key e versão. |
 | `GET` / `PATCH` | `/api/telemetry/records/{id}` | Consultar uma leitura ou editar um sensor com versão esperada. |
 | `POST` | `/api/import` | Importar CSV multipart no campo `file`. |
 | `POST` | `/api/import/attachment` | Preparar, confirmar ou consultar a importação de um anexo do chat. |

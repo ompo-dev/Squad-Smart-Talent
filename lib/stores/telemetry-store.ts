@@ -2,7 +2,8 @@
 import {create} from "zustand"
 import axios from "axios"
 import {startClientFlow} from "@/lib/observability/client"
-export type TelemetryView={rows:{id:number;header:string;type:string;status:string;target:string;limit:string;reviewer:string}[];series:{date:string;desktop:number;mobile:number}[];stats?:{readings:number;machines:number;temperature:number|null;alerts:number}}
+import type {TelemetryRow} from "@/lib/types"
+export type TelemetryView={rows:TelemetryRow[];series:{date:string;desktop:number;mobile:number}[];stats?:{readings:number;machines:number;temperature:number|null;alerts:number}}
 type Mode="latest"|"alerts"|"readings"
 type State={generation:number;requests:Partial<Record<Mode,string>>;views:Partial<Record<Mode,TelemetryView>>;loading:Partial<Record<Mode,boolean>>;errors:Partial<Record<Mode,string>>;traceparent?:string;invalidate:()=>void;load:(mode:Mode)=>Promise<void>}
 export const useTelemetryStore=create<State>((set,get)=>({generation:0,requests:{},views:{},loading:{},errors:{},invalidate:()=>set(state=>({generation:state.generation+1,views:{},loading:{},errors:{},requests:{}})),load:async(mode)=>{

@@ -1,10 +1,13 @@
-export type Telemetry = {
-  id: string
+export type ReadingStatus = "Falha" | "Crítico" | "Atenção" | "Normal"
+
+export type TelemetryRow = {
+  id: number
   recordKey: string
   version: number
   machineId: string
   assemblyLine: string
   timestamp: string
+  status: ReadingStatus
   hydraulicPressure: number | null
   coolantPressure: number | null
   airSystemPressure: number | null
