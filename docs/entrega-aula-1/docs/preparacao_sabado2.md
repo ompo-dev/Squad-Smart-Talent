@@ -19,7 +19,7 @@ Este checklist é parte da preparação da atividade. Os itens individuais **nã
 | Cartão | Status observado | Responsável |
 |---|---|---|
 | [S2] Criar o GitHub com README e .gitignore | A fazer | A definir |
-| [S2] Limpar o dataset com Pandas | A fazer | A definir |
+| [S2] Limpar o dataset Machine Downtime com Python | A fazer | A definir |
 | [S2] Fazer 2 gráficos | A fazer | A definir |
 | [S2] Escrever o Dockerfile do pipeline | A fazer | A definir |
 | [S2] Abrir 1 PR por integrante | A fazer | A definir |
@@ -28,7 +28,7 @@ Este checklist é parte da preparação da atividade. Os itens individuais **nã
 ## Outros cartões visualizados
 
 - **Em revisão:** [S1] Escrever as 5 consultas SQL; [S1] Desenhar o modelo inicial de dados (Excalidraw). Os arquivos técnicos estão preparados nesta pasta, mas requerem aprovação do grupo.
-- **Feito:** [S1] Escolher o tema e o dataset; [S1] Limpar a telemetria suja (telemetria_limpa). Esses eram os status visíveis na captura.
+- **Feito:** [S1] Escolher o tema e o dataset; [S1] Limpar o Machine Downtime (telemetria_limpa). Esses eram os status visíveis na captura.
 - **A fazer:** [S1] Colocar o dataset do tema no repositório; o arquivo está nesta pasta, porém **não foi publicado no GitHub por este trabalho**.
 - **Etapas futuras:** [S3] Definir tarefas do Sábado 3; [S4] Definir tarefas do Sábado 4 — registradas no board, mas fora da entrega técnica atual.
 

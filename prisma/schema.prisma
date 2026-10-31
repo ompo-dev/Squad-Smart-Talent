@@ -94,18 +94,30 @@ model Verification {
 }
 
 model Telemetry {
-  version     Int      @default(0)
-  id          BigInt   @id @map("id_leitura")
-  machineId   Int      @map("id_maquina")
-  timestamp   DateTime @map("data_hora") @db.Timestamp(6)
-  temperature Decimal? @map("temp_motor_c") @db.Decimal
-  oilPressure Decimal? @map("pressao_oleo_psi") @db.Decimal
-  rpm         Decimal? @db.Decimal
-  vibration   Decimal? @map("vibracao_mm_s") @db.Decimal
-  consumption Decimal? @map("consumo_l_h") @db.Decimal
-  engineHours Decimal? @map("horas_motor") @db.Decimal
+  id                         BigInt   @id @default(autoincrement())
+  recordKey                  String   @unique @map("record_key") @db.VarChar(32)
+  version                    Int      @default(0)
+  machineId                  String   @map("machine_id") @db.VarChar(120)
+  assemblyLine               String   @map("assembly_line") @db.VarChar(80)
+  timestamp                  DateTime @map("date") @db.Timestamp(6)
+  hydraulicPressure          Decimal? @map("hydraulic_pressure_bar") @db.Decimal
+  coolantPressure            Decimal? @map("coolant_pressure_bar") @db.Decimal
+  airSystemPressure          Decimal? @map("air_system_pressure_bar") @db.Decimal
+  coolantTemperature         Decimal? @map("coolant_temperature_c") @db.Decimal
+  hydraulicOilTemperature    Decimal? @map("hydraulic_oil_temperature_c") @db.Decimal
+  spindleBearingTemperature  Decimal? @map("spindle_bearing_temperature_c") @db.Decimal
+  spindleVibration           Decimal? @map("spindle_vibration_um") @db.Decimal
+  toolVibration              Decimal? @map("tool_vibration_um") @db.Decimal
+  spindleSpeed               Decimal? @map("spindle_speed_rpm") @db.Decimal
+  voltage                    Decimal? @map("voltage_v") @db.Decimal
+  torque                     Decimal? @map("torque_nm") @db.Decimal
+  cutting                    Decimal? @map("cutting_kn") @db.Decimal
+  downtime                   Boolean? @map("downtime")
+  downtimeLabel              String?  @map("downtime_label") @db.VarChar(40)
+  qualityIssues              String[] @map("quality_issues")
 
   @@index([machineId, timestamp])
+  @@index([timestamp])
   @@map("telemetry")
 }
 
@@ -134,7 +146,7 @@ model TelemetryChange {
   expectedVersion Int       @default(0) @map("expected_version")
   appliedVersion  Int?      @map("applied_version")
   id              String    @id @db.Uuid
-  readingId       Int       @map("reading_id")
+  readingId       BigInt    @map("reading_id")
   field           String
   beforeValue     Decimal?  @map("before_value") @db.Decimal
   afterValue      Decimal?  @map("after_value") @db.Decimal

@@ -3,12 +3,14 @@ node_modules
 .env
 .env.local
 data/*.csv
+!data/machine_downtime.csv
 work/
 generated/
 *.tsbuildinfo
 /public/swagger/
 
 reports/
+__pycache__/
 deploy/.env
 deploy/.env.dev
 deploy/.env.prod

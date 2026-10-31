@@ -16,8 +16,8 @@ import {useTelemetryStore} from "../lib/stores/telemetry-store"
 import axios from "axios"
 process.env.OBSERVABILITY_LOGS="off"
 after(async()=>{await closeRedis();await prisma.$disconnect()})
-const reading=(id:number)=>({id,machineId:100000,timestamp:"2026-05-01T00:00:00.000Z",temperature:70,oilPressure:40,rpm:1000,vibration:2,consumption:10,engineHours:100})
-const base=()=>1700000000+Math.floor(Math.random()*1000000)
+const reading=(machineId:string,index=0)=>({date:new Date(Date.UTC(2026,4,1,index)).toISOString(),machine_id:machineId,assembly_line:"Shopfloor-L1",hydraulic_pressure_bar:40,coolant_temperature_c:30,spindle_speed_rpm:1000,spindle_vibration_um:2,torque_nm:10,cutting_kn:2,downtime:false,downtime_label:"No_Machine_Failure"})
+const base=()=>`CI-Contract-${crypto.randomUUID()}`
 
 test("OpenAPI válido documenta todos os métodos e rotas da aplicação",async()=>{
  await SwaggerParser.validate(structuredClone(openapi) as never)
@@ -32,34 +32,37 @@ test("OpenAPI válido documenta todos os métodos e rotas da aplicação",async(
 })
 
 test("dois editores na mesma versão: um commit, um conflito e proposta antiga rejeitada",async()=>{
- const id=base(),keys=[crypto.randomUUID(),crypto.randomUUID()],payloads=[{expectedVersion:0,field:"pressao_oleo_psi",value:42,reason:"Teste concorrente A"},{expectedVersion:0,field:"rpm",value:1100,reason:"Teste concorrente B"}]
- await prisma.telemetry.create({data:{...reading(id),id:BigInt(id),timestamp:new Date(reading(id).timestamp)}})
+ const machineId=base(),keys=[crypto.randomUUID(),crypto.randomUUID()],payloads=[{expectedVersion:0,field:"hydraulic_pressure_bar",value:42,reason:"Teste concorrente A"},{expectedVersion:0,field:"spindle_speed_rpm",value:1100,reason:"Teste concorrente B"}]
+ const created=await prisma.telemetry.create({data:{recordKey:crypto.randomUUID().replaceAll("-",""),machineId,assemblyLine:"Shopfloor-L1",timestamp:new Date("2026-05-01T00:00:00.000Z"),coolantTemperature:30,hydraulicPressure:40,spindleSpeed:1000,downtime:false,qualityIssues:[]}})
+ const id=Number(created.id)
  try{
-   const proposal=await proposeChange({reading_id:id,field:"temp_motor_c",value:71,reason:"Prévia anterior ao outro editor"})
+   const proposal=await proposeChange({reading_id:id,field:"coolant_temperature_c",value:31,reason:"Prévia anterior ao outro editor"})
    const results=await Promise.allSettled(payloads.map((payload,index)=>updateRecord(id,payload,keys[index])))
    assert.equal(results.filter(result=>result.status==="fulfilled").length,1)
    const failure=results.find(result=>result.status==="rejected");assert.ok(failure?.status==="rejected"&&failure.reason instanceof CommandConflict)
-   const winner=results.findIndex(result=>result.status==="fulfilled"),row=await prisma.telemetry.findUniqueOrThrow({where:{id:BigInt(id)}})
-   assert.equal(row.version,1);assert.equal(Number(row.temperature),70)
+   const winner=results.findIndex(result=>result.status==="fulfilled"),row=await prisma.telemetry.findUniqueOrThrow({where:{id:created.id}})
+   assert.equal(row.version,1);assert.equal(Number(row.coolantTemperature),30)
    await assert.rejects(applyChange(proposal.change.id),/mudou após a prévia/)
-   assert.equal(await prisma.telemetryChange.count({where:{readingId:id,status:"applied"}}),1)
+   assert.equal(await prisma.telemetryChange.count({where:{readingId:created.id,status:"applied"}}),1)
    const repeated=await updateRecord(id,payloads[winner],keys[winner]);assert.equal(repeated.version,1)
-   assert.equal((await prisma.telemetry.findUniqueOrThrow({where:{id:BigInt(id)}})).version,1)
- }finally{await prisma.telemetryChange.deleteMany({where:{readingId:id}});await prisma.telemetry.deleteMany({where:{id:BigInt(id)}})}
+   assert.equal((await prisma.telemetry.findUniqueOrThrow({where:{id:created.id}})).version,1)
+ }finally{await prisma.telemetryChange.deleteMany({where:{readingId:created.id}});await prisma.telemetry.deleteMany({where:{machineId}})}
 })
 
 test("webhook repete sem duplicar e conflito desfaz todo o lote",async()=>{
- const id=base(),eventId=crypto.randomUUID(),initial={eventId,readings:[reading(id+1),reading(id+2)]}
+ const machineId=base(),eventId=crypto.randomUUID(),initial={eventId,readings:[reading(machineId,1),reading(machineId,2)]}
  try{
    const first=await receiveTelemetryWebhook(initial);assert.equal(first.created,2);assert.deepEqual(await receiveTelemetryWebhook(initial),first)
-   await assert.rejects(receiveTelemetryWebhook({...initial,readings:[reading(id+1)]}),CommandConflict)
-   await updateRecord(id+2,{expectedVersion:0,field:"temp_motor_c",value:72,reason:"Outro editor atualizou"},crypto.randomUUID())
-   const batch={eventId:crypto.randomUUID(),readings:[reading(id),{...reading(id+1),temperature:88,expectedVersion:0},{...reading(id+2),temperature:90,expectedVersion:0}]}
+   await assert.rejects(receiveTelemetryWebhook({...initial,readings:[reading(machineId,1)]}),CommandConflict)
+   const second=await prisma.telemetry.findFirstOrThrow({where:{machineId,timestamp:new Date(Date.UTC(2026,4,1,2))}})
+   await updateRecord(Number(second.id),{expectedVersion:0,field:"coolant_temperature_c",value:31,reason:"Outro editor atualizou"},crypto.randomUUID())
+   const firstRecord=await prisma.telemetry.findFirstOrThrow({where:{machineId,timestamp:new Date(Date.UTC(2026,4,1,1))}}),secondRecord=await prisma.telemetry.findFirstOrThrow({where:{machineId,timestamp:new Date(Date.UTC(2026,4,1,2))}})
+   const batch={eventId:crypto.randomUUID(),readings:[reading(machineId,0),{...reading(machineId,1),record_key:firstRecord.recordKey,coolant_temperature_c:32,expectedVersion:0},{...reading(machineId,2),record_key:secondRecord.recordKey,coolant_temperature_c:33,expectedVersion:0}]}
    await assert.rejects(receiveTelemetryWebhook(batch),CommandConflict)
-   assert.equal(await prisma.telemetry.count({where:{id:BigInt(id)}}),0)
-   const unchanged=await prisma.telemetry.findUniqueOrThrow({where:{id:BigInt(id+1)}});assert.equal(unchanged.version,0);assert.equal(Number(unchanged.temperature),70)
-   const applied=await receiveTelemetryWebhook({eventId:crypto.randomUUID(),readings:[{...reading(id+2),temperature:73,expectedVersion:1}]});assert.equal(applied.updated,1);assert.equal(applied.versions[0].version,2)
- }finally{await prisma.telemetryChange.deleteMany({where:{readingId:{in:[id,id+1,id+2]}}});await prisma.telemetry.deleteMany({where:{id:{in:[BigInt(id),BigInt(id+1),BigInt(id+2)]}}})}
+   assert.equal(await prisma.telemetry.count({where:{machineId,timestamp:new Date(Date.UTC(2026,4,1,0))}}),0)
+   const unchanged=await prisma.telemetry.findFirstOrThrow({where:{machineId,timestamp:new Date(Date.UTC(2026,4,1,1))}});assert.equal(unchanged.version,0);assert.equal(Number(unchanged.coolantTemperature),30)
+   const applied=await receiveTelemetryWebhook({eventId:crypto.randomUUID(),readings:[{...reading(machineId,2),record_key:secondRecord.recordKey,coolant_temperature_c:34,expectedVersion:1}]});assert.equal(applied.updated,1);assert.equal(applied.versions[0].version,2)
+ }finally{await prisma.telemetryChange.deleteMany({where:{readingId:{in:(await prisma.telemetry.findMany({where:{machineId},select:{id:true}})).map(row=>row.id)}}});await prisma.telemetry.deleteMany({where:{machineId}})}
 })
 
 test("HMAC verifica bytes UTF-8, alteração de corpo e expiração; limite cancela leitura",async()=>{
@@ -75,7 +78,7 @@ test("HMAC verifica bytes UTF-8, alteração de corpo e expiração; limite canc
 })
 
 test("job e outbox são atômicos; replay não cria outro job e retry exige falha",async()=>{
- const key=crypto.randomUUID(),csv="id_leitura,id_maquina,data_hora,temp_motor_c,pressao_oleo_psi,rpm,vibracao_mm_s,consumo_l_h,horas_motor\n1,1,2026-05-01 00:00:00,70,40,1000,2,10,100"
+ const key=crypto.randomUUID(),csv="date,machine_id,assembly_line,coolant_temperature_c,downtime\n2026-05-01,Makino-L1-Unit1-2013,Shopfloor-L1,28.4,No_Machine_Failure"
  const result=await submitImport(csv,"test-contract.csv",key)
  try{
    assert.deepEqual(await submitImport(csv,"test-contract.csv",key),result)

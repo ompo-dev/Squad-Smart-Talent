@@ -1,20 +1,9 @@
 import {parse} from "csv-parse/sync"
 import {canImportAttachment,fileExtension} from "@/lib/attachment-policy"
+import {canonicalHeader,fieldForColumn,fieldForHeader,requiredFields,telemetryColumns,type TelemetryField} from "@/lib/telemetry-schema"
 
-export const telemetryColumns=["id_leitura","id_maquina","data_hora","temp_motor_c","pressao_oleo_psi","rpm","vibracao_mm_s","consumo_l_h","horas_motor"] as const
-const aliases:Record<string,readonly string[]>={
-  id_leitura:["id_leitura","reading_id","readingId","id"],
-  id_maquina:["id_maquina","machine_id","machineId","maquina"],
-  data_hora:["data_hora","timestamp","datetime","data e hora"],
-  temp_motor_c:["temp_motor_c","temperature","temperatura","temperatura_c"],
-  pressao_oleo_psi:["pressao_oleo_psi","oilPressure","oil_pressure","pressao_oleo"],
-  rpm:["rpm","rotacao"],
-  vibracao_mm_s:["vibracao_mm_s","vibration","vibracao"],
-  consumo_l_h:["consumo_l_h","consumption","consumo"],
-  horas_motor:["horas_motor","engineHours","engine_hours","horas do motor"],
-}
-const headerKey=(value:unknown)=>String(value??"").normalize("NFD").replace(/\p{M}/gu,"").toLowerCase().replace(/[^a-z0-9]/g,"")
-const columnByAlias=new Map(Object.entries(aliases).flatMap(([column,names])=>names.map(name=>[headerKey(name),column] as const)))
+const outputFields=telemetryColumns.map(column=>fieldForColumn(column)) as TelemetryField[]
+const columnByAlias=fieldForHeader
 
 function cellValue(value:unknown):unknown{
   if(value instanceof Date)return value.toISOString()
@@ -27,22 +16,22 @@ function cellValue(value:unknown):unknown{
   return value
 }
 function columnIndexes(headers:unknown[]){
-  const indexes=new Map<string,number>()
+  const indexes=new Map<TelemetryField,number>()
   headers.forEach((header,index)=>{
-    const column=columnByAlias.get(headerKey(cellValue(header)))
-    if(!column)return
-    if(indexes.has(column))throw new Error(`Duas colunas representam ${column}. Mantenha apenas uma antes de importar.`)
-    indexes.set(column,index)
+    const field=columnByAlias(cellValue(header))
+    if(!field)return
+    if(indexes.has(field))throw new Error(`Duas colunas representam ${canonicalHeader[field]}. Mantenha apenas uma antes de importar.`)
+    indexes.set(field,index)
   })
-  const missing=telemetryColumns.filter(column=>!indexes.has(column))
-  if(missing.length)throw new Error(`Colunas de telemetria ausentes: ${missing.join(", ")}. O arquivo continua disponível para análise.`)
-  return telemetryColumns.map(column=>indexes.get(column)!)
+  const missing=requiredFields.filter(field=>!indexes.has(field))
+  if(missing.length)throw new Error(`Colunas de telemetria ausentes: ${missing.map(field=>canonicalHeader[field]).join(", ")}. O arquivo continua disponível para análise.`)
+  return indexes
 }
 function rowsFromTable(rows:unknown[][]){
   if(rows.length<2)throw new Error("O arquivo precisa conter um cabeçalho e ao menos uma leitura.")
   const indexes=columnIndexes(rows[0])
   return rows.slice(1).filter(row=>row.some(value=>value!==null&&value!==undefined&&String(value).trim()!==""))
-    .map(row=>indexes.map(index=>cellValue(row[index])))
+    .map(row=>outputFields.map(field=>{const index=indexes.get(field);return index===undefined?"":cellValue(row[index])}))
 }
 function csvRows(content:string){
   let delimiter=","
@@ -50,7 +39,7 @@ function csvRows(content:string){
   for(const candidate of [",",";","\t"]){
     try{
       const first=parse(content,{delimiter:candidate,bom:true,skip_empty_lines:true,to:1})[0] as unknown[]|undefined
-      const score=first?.filter(value=>columnByAlias.has(headerKey(value))).length??0
+      const score=first?.filter(value=>fieldForHeader(value)&&requiredFields.includes(fieldForHeader(value)!)).length??0
       if(score>bestScore){bestScore=score;delimiter=candidate}
     }catch{/* Try the other supported separators. */}
   }
@@ -64,7 +53,7 @@ function jsonRows(content:string){
     const object=value as Record<string,unknown>
     value=object.readings??object.leituras??object.data??object.dados
   }
-  if(!Array.isArray(value)||!value.length)throw new Error("Use uma lista JSON de leituras ou um objeto com readings, leituras, data ou dados.")
+  if(!Array.isArray(value)||!value.length)throw new Error("Use uma lista JSON de leituras ou um objeto com readings, leituras, data ou dados que contenha as colunas de telemetria.")
   if(value.every(Array.isArray))return rowsFromTable(value as unknown[][])
   if(!value.every(row=>row&&typeof row==="object"&&!Array.isArray(row)))throw new Error("Cada leitura JSON precisa ser um objeto com os campos de telemetria.")
   const headers=[...new Set(value.flatMap(row=>Object.keys(row as object)))]
@@ -84,10 +73,10 @@ function xlsxRows(content:string){
   if(sheet.length)sheets.push(sheet)
   const readings:unknown[][]=[]
   for(const table of sheets){
-    const header=table.slice(0,20).findIndex(row=>telemetryColumns.every(column=>row.some(value=>columnByAlias.get(headerKey(cellValue(value)))===column)))
+    const header=table.slice(0,20).findIndex(row=>requiredFields.every(field=>row.some(value=>fieldForHeader(cellValue(value))===field)))
     if(header>=0)readings.push(...rowsFromTable(table.slice(header)))
   }
-  if(!readings.length)throw new Error("Nenhuma aba contém as nove colunas de telemetria. As outras abas continuam disponíveis para análise.")
+  if(!readings.length)throw new Error("Nenhuma aba contém as colunas de telemetria necessárias (data, máquina e linha de montagem). As outras abas continuam disponíveis para análise.")
   return readings
 }
 function csvCell(value:unknown){

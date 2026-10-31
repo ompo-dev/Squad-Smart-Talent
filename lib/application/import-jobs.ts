@@ -3,10 +3,13 @@ import {executeCommand,payloadHash,jsonValue,CommandConflict} from "./command-bu
 import {currentTrace} from "@/lib/observability/server"
 import {traceHeader} from "@/lib/observability/context"
 import {prisma} from "@/lib/prisma"
+import {canonicalHeader,fieldForHeader,requiredFields} from "@/lib/telemetry-schema"
 export async function submitImport(content:string,filename:string,key?:string){
  if(content.length>5*1024*1024)throw new Error("CSV excede 5 MB")
  const rows=parse(content,{columns:true,bom:true,skip_empty_lines:true,trim:true}) as Record<string,string>[]
- if(!rows.length||["id_leitura","id_maquina","data_hora","temp_motor_c","pressao_oleo_psi","rpm","vibracao_mm_s","consumo_l_h","horas_motor"].some(field=>!(field in rows[0])))throw new Error("CSV de telemetria inválido")
+ const fields=new Set(Object.keys(rows[0]??{}).map(fieldForHeader).filter(Boolean))
+ const missing=requiredFields.filter(field=>!fields.has(field))
+ if(!rows.length||missing.length)throw new Error(`CSV de telemetria inválido: faltam ${missing.map(field=>canonicalHeader[field]).join(", ")||"leituras"}`)
  const hash=payloadHash(content)
  return executeCommand({type:"ingestion.submit",idempotencyKey:key??hash,payload:{hash,filename}},async tx=>{
    const trace=currentTrace(),parent=trace?traceHeader(trace):undefined,id=crypto.randomUUID()

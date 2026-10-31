@@ -1,198 +1,266 @@
-#!/usr/bin/env python3
-"""Prepara dados de telemetria CSV em SQLite, sem pacotes externos.
-Uso: python preparar_banco.py CAMINHO/telemetria_suja.csv [saida.db]
-Cada execução cria a base de saída informada, sem sobrescrever arquivo existente.
+"""Prepara o Machine Downtime.csv em um banco SQLite limpo para a entrega da Aula 1.
+
+Uso:
+    python docs/entrega-aula-1/scripts/preparar_banco.py data/machine_downtime.csv docs/entrega-aula-1/dados/grupo4_machine_downtime.db
 """
+
+from __future__ import annotations
+
 import csv
-import datetime as dt
+import hashlib
+import json
 import re
 import sqlite3
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = ROOT.parent if ROOT.name == 'scripts' else ROOT
+SENSORES = {
+    "hydraulic_pressure_bar": (0, 300),
+    "coolant_pressure_bar": (0, 20),
+    "air_system_pressure_bar": (0, 20),
+    "coolant_temperature_c": (0, 100),
+    "hydraulic_oil_temperature_c": (0, 120),
+    "spindle_bearing_temperature_c": (0, 120),
+    "spindle_vibration_um": (0, 20),
+    "tool_vibration_um": (0, 100),
+    "spindle_speed_rpm": (0, 40000),
+    "voltage_v": (0, 600),
+    "torque_nm": (0, 200),
+    "cutting_kn": (0, 50),
+}
 
-DDL = ROOT / '01_modelo_sqlite.sql'
-if not DDL.exists():
-    DDL = PROJECT_ROOT / 'sql' / '01_modelo_sqlite.sql'
-CAMPOS = ('id_leitura', 'id_maquina', 'data_hora', 'temp_motor_c',
-          'pressao_oleo_psi', 'rpm', 'vibracao_mm_s', 'consumo_l_h', 'horas_motor')
-TEMP_ALERTA = 100.0            # hipótese de triagem do exercício, NÃO laudo da fabricante
-PRESSAO_ALERTA = 20.0         # hipótese DIDÁTICA, confirmar com especialista / manual
-VIBRACAO_ALERTA = 4.5        # regra de alertas usada no projeto TelemetryOS
-FAIXA_INTERMEDIARIA = 1000.0  # hipótese didática
-FAIXA_ALTA = 5000.0          # hipótese didática
+ALIASES = {
+    "date": "date",
+    "machine_id": "machine_id",
+    "assembly_line_no": "assembly_line",
+    "hydraulic_pressure": "hydraulic_pressure_bar",
+    "hydraulic_pressure_bar": "hydraulic_pressure_bar",
+    "coolant_pressure": "coolant_pressure_bar",
+    "coolant_pressure_bar": "coolant_pressure_bar",
+    "air_system_pressure": "air_system_pressure_bar",
+    "air_system_pressure_bar": "air_system_pressure_bar",
+    "coolant_temperature": "coolant_temperature_c",
+    "coolant_temperature_c": "coolant_temperature_c",
+    "hydraulic_oil_temperature": "hydraulic_oil_temperature_c",
+    "hydraulic_oil_temperature_c": "hydraulic_oil_temperature_c",
+    "spindle_bearing_temperature": "spindle_bearing_temperature_c",
+    "spindle_bearing_temperature_c": "spindle_bearing_temperature_c",
+    "spindle_vibration": "spindle_vibration_um",
+    "spindle_vibration_m": "spindle_vibration_um",
+    "spindle_vibration_um": "spindle_vibration_um",
+    "tool_vibration": "tool_vibration_um",
+    "tool_vibration_m": "tool_vibration_um",
+    "tool_vibration_um": "tool_vibration_um",
+    "spindle_speed": "spindle_speed_rpm",
+    "spindle_speed_rpm": "spindle_speed_rpm",
+    "voltage": "voltage_v",
+    "voltage_volts": "voltage_v",
+    "voltage_v": "voltage_v",
+    "torque": "torque_nm",
+    "torque_nm": "torque_nm",
+    "cutting": "cutting_kn",
+    "cutting_kn": "cutting_kn",
+    "downtime": "downtime",
+}
+
+SENTINELS = {"", "na", "n/a", "nan", "null", "none", "sem dado", "-", "--", "undefined"}
 
 
-def number(v):
-    if v is None:
+def header_key(value: str) -> str:
+    text = re.sub(r"\([^)]*\)", " ", value)
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+HEADER_LOOKUP = {header_key(alias): field for alias, field in ALIASES.items()}
+
+
+def parse_number(raw: object, minimum: float, maximum: float) -> float | None:
+    text = str(raw or "").strip().replace("\u00a0", " ").replace("−", "-")
+    if not text or text.lower() in SENTINELS:
         return None
-    s = str(v).strip().replace('\u00a0', '').replace('−', '-')
-    if s.lower() in ('', 'na', 'n/a', 'nan', 'null', 'none', 'sem dado', '-', '--'):
+    text = re.sub(r"\s*(?:°\s*c|c|psi|bar|rpm|mm\s*/\s*s|µm|um|nm|kn|v|volts?|h|horas?)\s*$", "", text, flags=re.I)
+    text = text.replace(" ", "")
+    if not text or text.lower() in SENTINELS:
         return None
-    # Só remove unidades finais, nunca converte texto arbitrário em número.
-    s = re.sub(r'\s*(?:°\s*c|c|psi|rpm|mm\s*/\s*s|l\s*/\s*h|h|horas?)\s*$', '', s, flags=re.I).strip()
-    s = s.replace(' ', '')
-    if ',' in s and '.' in s:
-        s = s.replace('.', '').replace(',', '.') if s.rfind(',') > s.rfind('.') else s.replace(',', '')
-    elif ',' in s:
-        s = s.replace(',', '.')
-    if not re.fullmatch(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)', s):
-        return None
+    if "," in text and "." in text:
+        text = text.replace(".", "").replace(",", ".") if text.rfind(",") > text.rfind(".") else text.replace(",", "")
+    elif "," in text:
+        text = text.replace(",", "") if re.fullmatch(r"-?\d{1,3}(?:,\d{3}){2,}", text) else text.replace(",", ".")
+    elif re.fullmatch(r"-?\d{1,3}(?:\.\d{3}){2,}", text):
+        text = text.replace(".", "")
     try:
-        f = float(s)
-        return f if abs(f) < 1e12 else None
+        number = float(text)
     except ValueError:
         return None
-
-
-def bounded(v, lo=None, hi=None):
-    n = number(v)
-    return n if n is not None and (lo is None or n >= lo) and (hi is None or n <= hi) else None
-
-
-def timestamp(v):
-    s = (v or '').strip()
-    if not s:
+    if number == 0 or number < 0 or number < minimum or number > maximum:
         return None
-    t = s.replace('T', ' ').removesuffix('Z')
-    try:
-        d = dt.datetime.fromisoformat(t)
-        return d.strftime('%Y-%m-%d %H:%M:%S')
-    except ValueError:
-        pass
-    for fmt in ('%d/%m/%Y %H:%M:%S', '%d/%m/%Y %H:%M', '%d/%m/%Y',
-                '%Y-%m-%d', '%Y/%m/%d %H:%M:%S', '%Y/%m/%d %H:%M'):
+    return number
+
+
+def parse_date(raw: object) -> str | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d", "%Y/%m/%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
         try:
-            return dt.datetime.strptime(s, fmt).strftime('%Y-%m-%d %H:%M:%S')
+            return datetime.strptime(text, fmt).replace(tzinfo=timezone.utc).isoformat(timespec="seconds")
         except ValueError:
             continue
-    return None
-
-
-def turno_normalizado(v, horario):
-    v = (v or '').strip().upper()
-    # Se o CSV já possui um turno válido, prioriza a identificação da fábrica.
-    if v in ('A', 'B', 'C'):
-        return v
-    # Hipótese de três turnos de 8h; corrigir se a fábrica usar outra escala.
-    hora = int(horario[11:13])
-    return 'A' if 6 <= hora < 14 else ('B' if 14 <= hora < 22 else 'C')
-
-
-def carregar(csv_path, db_path):
-    csv_path, db_path = Path(csv_path), Path(db_path)
-    if not csv_path.is_file():
-        raise SystemExit(f'CSV não encontrado: {csv_path}')
-    if db_path.exists():
-        raise SystemExit(f'Banco já existe, escolha outro caminho para não sobrescrever: {db_path}')
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(str(db_path))
-    con.execute('PRAGMA foreign_keys=ON')
     try:
-        with con:
-            con.executescript(DDL.read_text(encoding='utf-8'))
-            con.execute('''CREATE TEMP TABLE telemetria_preparada (
-                id_leitura TEXT PRIMARY KEY, id_maquina TEXT, data_hora TEXT, turno TEXT,
-                temp_motor_c REAL, pressao_oleo_psi REAL, rpm REAL, vibracao_mm_s REAL,
-                consumo_l_h REAL, horas_motor REAL, def_superaquecimento INTEGER,
-                def_pressao_baixa INTEGER, def_vibracao_alta INTEGER, perda_leitura INTEGER
-            )''')
-            with csv_path.open('r', encoding='utf-8-sig', newline='') as f:
-                sample = f.read(8192); f.seek(0)
-                try:
-                    dialect = csv.Sniffer().sniff(sample, delimiters=',;\t')
-                    delimiter = dialect.delimiter
-                except csv.Error:
-                    delimiter = ';' if sample.count(';') > sample.count(',') else ','
-                reader = csv.DictReader(f, delimiter=delimiter)
-                reader.fieldnames = [(x or '').strip() for x in (reader.fieldnames or [])]
-                missing = set(CAMPOS) - set(reader.fieldnames)
-                if missing:
-                    raise ValueError('Colunas faltando no CSV: ' + ', '.join(sorted(missing)))
-                total = rejeitadas = 0
-                for linha, row in enumerate(reader, start=2):
-                    if not row or all(v is None or not str(v).strip() for v in row.values()):
-                        continue
-                    total += 1
-                    raw = [(row.get(k) or '').strip() for k in CAMPOS]
-                    ident, maquina, dh = raw[:3]
-                    iso = timestamp(dh)
-                    motivos = []
-                    if not ident:
-                        motivos.append('id_leitura ausente')
-                    if not maquina:
-                        motivos.append('id_maquina ausente')
-                    if not iso:
-                        motivos.append('data_hora inválida')
-                    if ident and con.execute('SELECT 1 FROM telemetria_preparada WHERE id_leitura=?', (ident,)).fetchone():
-                        motivos.append('id_leitura duplicado (primeira linha preservada)')
-                    con.execute('''INSERT INTO telemetria_suja
-                      (id_leitura,id_maquina,data_hora,temp_motor_c,pressao_oleo_psi,rpm,
-                       vibracao_mm_s,consumo_l_h,horas_motor,turno)
-                      VALUES (?,?,?,?,?,?,?,?,?,?)''', tuple(raw) + ((row.get('turno') or ''),))
-                    if motivos:
-                        rejeitadas += 1
-                        con.execute('INSERT INTO rejeicoes_importacao(linha_csv,id_leitura,motivo) VALUES(?,?,?)',
-                                    (linha, ident, '; '.join(motivos)))
-                        continue
-                    temp = bounded(row.get('temp_motor_c'), -40, 200)
-                    pressao = bounded(row.get('pressao_oleo_psi'), 0, 300)
-                    rpm = bounded(row.get('rpm'), 0, 10000)
-                    vib = bounded(row.get('vibracao_mm_s'), 0, 100)
-                    consumo = bounded(row.get('consumo_l_h'), 0, 1000000)
-                    horas = bounded(row.get('horas_motor'), 0, 100000000)
-                    incompleta = int(any(x is None for x in (temp, pressao, rpm, vib)))
-                    con.execute('''INSERT INTO telemetria_preparada VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-                                (ident, maquina, iso, turno_normalizado(row.get('turno'), iso),
-                                 temp, pressao, rpm, vib, consumo, horas,
-                                 int(temp is not None and temp >= TEMP_ALERTA),
-                                 int(pressao is not None and pressao < PRESSAO_ALERTA),
-                                 int(vib is not None and vib > VIBRACAO_ALERTA), incompleta))
-
-            # Desafio do enunciado: dimensão inicialmente construída por DISTINCT.
-            con.execute('CREATE TEMP TABLE maquinas_distintas AS SELECT DISTINCT id_maquina FROM telemetria_preparada')
-            con.execute('''INSERT INTO dim_maquina(id_maquina,faixa_uso,horas_motor_atual,consumo_medio_l_h)
-                SELECT d.id_maquina,
-                       CASE WHEN MAX(p.horas_motor) IS NULL THEN 'Sem classificação'
-                            WHEN MAX(p.horas_motor) < ? THEN 'Baixa'
-                            WHEN MAX(p.horas_motor) < ? THEN 'Média'
-                            ELSE 'Alta' END,
-                       MAX(p.horas_motor), AVG(p.consumo_l_h)
-                FROM maquinas_distintas d JOIN telemetria_preparada p
-                     ON p.id_maquina=d.id_maquina GROUP BY d.id_maquina''',
-                        (FAIXA_INTERMEDIARIA, FAIXA_ALTA))
-            con.execute('''INSERT INTO telemetria_limpa
-                (id_leitura,id_maquina,data_hora,turno,temp_motor_c,pressao_oleo_psi,rpm,
-                 vibracao_mm_s,consumo_l_h,horas_motor,def_superaquecimento,
-                 def_pressao_baixa,def_vibracao_alta,perda_leitura)
-                SELECT id_leitura,id_maquina,data_hora,turno,temp_motor_c,pressao_oleo_psi,
-                       rpm,vibracao_mm_s,consumo_l_h,horas_motor,def_superaquecimento,
-                       def_pressao_baixa,def_vibracao_alta,perda_leitura
-                FROM telemetria_preparada''')
-            con.execute('''INSERT INTO fato_ocorrencia(id_leitura,id_maquina,tipo_ocorrencia)
-                SELECT id_leitura,id_maquina,'Superaquecimento' FROM telemetria_limpa WHERE def_superaquecimento=1
-                UNION ALL SELECT id_leitura,id_maquina,'Pressão baixa' FROM telemetria_limpa WHERE def_pressao_baixa=1
-                UNION ALL SELECT id_leitura,id_maquina,'Vibração alta' FROM telemetria_limpa WHERE def_vibracao_alta=1
-                UNION ALL SELECT id_leitura,id_maquina,'Perda de leitura' FROM telemetria_limpa WHERE perda_leitura=1''')
-            problemas = con.execute('PRAGMA foreign_key_check').fetchall()
-            if problemas:
-                raise AssertionError(f'Inconsistência de chaves estrangeiras: {problemas[:3]}')
-            print(f'CSV: {csv_path.name} | brutas: {total} | rejeitadas: {rejeitadas}')
-            for table in ('telemetria_limpa','dim_maquina','fato_ocorrencia'):
-                print(f'  {table}: {con.execute("SELECT COUNT(*) FROM " + table).fetchone()[0]} registros')
-            print(f'Banco SQLite criado: {db_path}')
-    except Exception:
-        con.close()
-        if db_path.exists(): db_path.unlink()
-        raise
-    finally:
-        try: con.close()
-        except Exception: pass
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return parsed.astimezone(timezone.utc).isoformat(timespec="seconds")
+    except ValueError:
+        return None
 
 
-if __name__ == '__main__':
-    if len(sys.argv) not in (2, 3):
-        raise SystemExit('Uso: python preparar_banco.py dados.csv [banco_saida.db]')
-    carregar(sys.argv[1], sys.argv[2] if len(sys.argv) == 3 else 'grupo4_oee.db')
+def parse_downtime(raw: object) -> tuple[int | None, str | None]:
+    text = str(raw or "").strip()
+    if not text:
+        return None, None
+    key = re.sub(r"[^a-z0-9]", "", text.lower())
+    if key in {"machinefailure", "falha", "falhamaquina", "true", "1", "sim", "yes"}:
+        return 1, text
+    if key in {"nomachinefailure", "semfalha", "false", "0", "nao", "no"}:
+        return 0, text
+    return None, text
+
+
+def record_key(reading: dict[str, object]) -> str:
+    canonical = [
+        reading["date"], reading["machine_id"], reading["assembly_line"],
+        *[reading[field] for field in SENSORES], reading["downtime"],
+    ]
+    return hashlib.sha256(json.dumps(canonical, ensure_ascii=False).encode("utf-8")).hexdigest()[:32]
+
+
+def build(input_path: Path, output_path: Path) -> dict[str, int]:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if output_path.exists():
+        output_path.unlink()
+    connection = sqlite3.connect(output_path)
+    connection.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+        CREATE TABLE telemetria_suja (
+            id_registro_bruto INTEGER PRIMARY KEY,
+            date TEXT, machine_id TEXT, assembly_line TEXT,
+            hydraulic_pressure_bar TEXT, coolant_pressure_bar TEXT,
+            air_system_pressure_bar TEXT, coolant_temperature_c TEXT,
+            hydraulic_oil_temperature_c TEXT, spindle_bearing_temperature_c TEXT,
+            spindle_vibration_um TEXT, tool_vibration_um TEXT, spindle_speed_rpm TEXT,
+            voltage_v TEXT, torque_nm TEXT, cutting_kn TEXT, downtime TEXT
+        );
+        CREATE TABLE dim_maquina (
+            machine_id TEXT PRIMARY KEY NOT NULL,
+            assembly_line TEXT NOT NULL,
+            leituras INTEGER NOT NULL,
+            paradas INTEGER NOT NULL,
+            taxa_parada REAL NOT NULL,
+            temperatura_refrigerante_media_c REAL,
+            vibracao_spindle_media_um REAL
+        );
+        CREATE TABLE telemetria_limpa (
+            record_key TEXT PRIMARY KEY NOT NULL,
+            machine_id TEXT NOT NULL,
+            assembly_line TEXT NOT NULL,
+            date TEXT NOT NULL,
+            hydraulic_pressure_bar REAL, coolant_pressure_bar REAL,
+            air_system_pressure_bar REAL, coolant_temperature_c REAL,
+            hydraulic_oil_temperature_c REAL, spindle_bearing_temperature_c REAL,
+            spindle_vibration_um REAL, tool_vibration_um REAL, spindle_speed_rpm REAL,
+            voltage_v REAL, torque_nm REAL, cutting_kn REAL,
+            downtime INTEGER, downtime_label TEXT, quality_issues TEXT,
+            perda_leitura INTEGER NOT NULL DEFAULT 0,
+            def_parada INTEGER NOT NULL DEFAULT 0,
+            def_temperatura_critica INTEGER NOT NULL DEFAULT 0,
+            def_vibracao_critica INTEGER NOT NULL DEFAULT 0,
+            def_pressao_critica INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (machine_id) REFERENCES dim_maquina(machine_id)
+        );
+        CREATE TABLE fato_ocorrencia (
+            id_ocorrencia INTEGER PRIMARY KEY AUTOINCREMENT,
+            record_key TEXT NOT NULL,
+            machine_id TEXT NOT NULL,
+            tipo_ocorrencia TEXT NOT NULL,
+            FOREIGN KEY (record_key) REFERENCES telemetria_limpa(record_key),
+            FOREIGN KEY (machine_id) REFERENCES dim_maquina(machine_id),
+            UNIQUE (record_key, tipo_ocorrencia)
+        );
+        CREATE INDEX ix_leitura_maquina_data ON telemetria_limpa(machine_id, date);
+        CREATE INDEX ix_fato_maquina ON fato_ocorrencia(machine_id);
+        """
+    )
+    stats = {"recebidas": 0, "validas": 0, "invalidas": 0, "duplicadas": 0, "corrigidas": 0}
+    seen: set[str] = set()
+    with input_path.open("r", encoding="utf-8-sig", newline="") as source:
+        reader = csv.reader(source)
+        headers = next(reader)
+        fields = [HEADER_LOOKUP.get(header_key(header)) for header in headers]
+        for index, row in enumerate(reader, start=2):
+            if not any(cell.strip() for cell in row):
+                continue
+            stats["recebidas"] += 1
+            raw = {field: row[position] if position < len(row) else "" for position, field in enumerate(fields) if field}
+            connection.execute(
+                "INSERT INTO telemetria_suja VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                [index, *[raw.get(field, "") for field in ("date", "machine_id", "assembly_line", *SENSORES, "downtime")]],
+            )
+            date = parse_date(raw.get("date"))
+            machine_id = (raw.get("machine_id") or "").strip()
+            assembly_line = (raw.get("assembly_line") or "").strip()
+            if not date or not machine_id or not assembly_line:
+                stats["invalidas"] += 1
+                continue
+            reading: dict[str, object] = {"date": date, "machine_id": machine_id, "assembly_line": assembly_line}
+            issues: list[str] = []
+            for field, (minimum, maximum) in SENSORES.items():
+                value = parse_number(raw.get(field), minimum, maximum)
+                reading[field] = value
+                if value is None:
+                    issues.append(f"{field}: ausente ou corrigido")
+                    stats["corrigidas"] += 1
+            downtime, label = parse_downtime(raw.get("downtime"))
+            reading["downtime"] = downtime
+            reading["downtime_label"] = label
+            key = record_key(reading)
+            if key in seen:
+                stats["duplicadas"] += 1
+                continue
+            seen.add(key)
+            stats["validas"] += 1
+            critical = {
+                "def_parada": int(downtime == 1),
+                "def_temperatura_critica": int(any(reading.get(field) is not None and reading[field] > limit for field, limit in (("coolant_temperature_c", 45), ("hydraulic_oil_temperature_c", 60), ("spindle_bearing_temperature_c", 47)))),
+                "def_vibracao_critica": int(any(reading.get(field) is not None and reading[field] > limit for field, limit in (("spindle_vibration_um", 1.95), ("tool_vibration_um", 44)))),
+                "def_pressao_critica": int(any(reading.get(field) is not None and (reading[field] < low or reading[field] > high) for field, low, high in (("hydraulic_pressure_bar", 40, 185), ("coolant_pressure_bar", 2, 9), ("air_system_pressure_bar", 4, 8)))),
+            }
+            perda = int(any(reading[field] is None for field in SENSORES))
+            connection.execute(
+                "INSERT INTO telemetria_limpa VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                [key, machine_id, assembly_line, date, *[reading[field] for field in SENSORES], downtime, label, " | ".join(issues), perda, *critical.values()],
+            )
+            for tipo, active in (("Parada", critical["def_parada"]), ("Temperatura crítica", critical["def_temperatura_critica"]), ("Vibração crítica", critical["def_vibracao_critica"]), ("Pressão crítica", critical["def_pressao_critica"])):
+                if active:
+                    connection.execute("INSERT INTO fato_ocorrencia(record_key,machine_id,tipo_ocorrencia) VALUES (?,?,?)", (key, machine_id, tipo))
+    connection.execute(
+        """
+        INSERT INTO dim_maquina
+        SELECT machine_id, MIN(assembly_line), COUNT(*), SUM(downtime),
+               ROUND(1.0 * AVG(downtime), 4),
+               ROUND(AVG(coolant_temperature_c), 2), ROUND(AVG(spindle_vibration_um), 3)
+        FROM telemetria_limpa GROUP BY machine_id
+        """
+    )
+    connection.commit()
+    connection.execute("PRAGMA foreign_keys = ON")
+    counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ("telemetria_suja", "telemetria_limpa", "dim_maquina", "fato_ocorrencia")}
+    connection.close()
+    print(json.dumps({**stats, "tabelas": counts}, ensure_ascii=False, indent=2))
+    return stats
+
+
+if __name__ == "__main__":
+    source = Path(sys.argv[1] if len(sys.argv) > 1 else "data/machine_downtime.csv")
+    destination = Path(sys.argv[2] if len(sys.argv) > 2 else "docs/entrega-aula-1/dados/grupo4_machine_downtime.db")
+    build(source, destination)

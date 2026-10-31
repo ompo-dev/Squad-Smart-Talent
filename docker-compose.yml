@@ -61,7 +61,7 @@ services:
     command: ["npm", "run", "data:import"]
     environment:
       DATABASE_URL: postgresql://telemetry:telemetry@postgres:5432/telemetry
-      CSV_PATH: /data/telemetria_suja.csv
+      CSV_PATH: /data/machine_downtime.csv
     volumes: ["./data:/data:ro"]
     depends_on: { postgres: { condition: service_healthy } }
 volumes: { telemetry_pg: {}, telemetry_redis: {} }

@@ -5,7 +5,8 @@ import { analysisSpec } from "../lib/openui-schema"
 import { executeAgentTool, readQuery } from "../lib/agent-tools"
 import {prisma} from "../lib/prisma"
 import {executeCommand,CommandConflict} from "../lib/application/command-bus"
-import {importTelemetry,sensorNumber,telemetryDate} from "../lib/application/import-telemetry"
+import {importTelemetry} from "../lib/application/import-telemetry"
+import {parseSensorNumber,parseTelemetryDate} from "../lib/telemetry-schema"
 import {claimChatRun,finishChatRun,replayChatRun} from "../lib/application/chat-runs"
 import {useCommandStore} from "../lib/stores/command-store"
 import axios from "axios"
@@ -23,9 +24,9 @@ import {createThread,getMessages,saveMessages,listThreads} from "../lib/chat-db"
 import { POST } from "../app/api/ai/route"
 
 test("filtros de telemetria são reais, validados e limitados", async () => {
-  const result = await executeAgentTool("query_telemetry", {machine_id:22,min_temperature:100,order_by:"temp_motor_c",limit:5})
+  const result = await executeAgentTool("query_telemetry", {machine_id:"Makino-L1-Unit1-2013",min_coolant_temperature:30,order_by:"coolant_temperature_c",limit:5})
   assert.ok(result.rows?.length)
-  assert.ok(result.rows.every((row) => row.id_maquina === 22 && Number(row.temp_motor_c) >= 100))
+  assert.ok(result.rows.every((row) => row.machine_id === "Makino-L1-Unit1-2013" && Number(row.coolant_temperature_c) >= 30))
   assert.ok(result.rows.length <= 5)
   await assert.rejects(executeAgentTool("query_telemetry",{limit:201}))
   await assert.rejects(executeAgentTool("query_telemetry",{order_by:"data_hora; DROP TABLE telemetry"}))
@@ -33,24 +34,24 @@ test("filtros de telemetria são reais, validados e limitados", async () => {
 })
 test("resumo e agregação usam o arquivo importado", async () => {
   const result = await executeAgentTool("get_fleet_summary",{})
-  assert.equal(result.summary?.maquinas,24); assert.equal(result.summary?.leituras,4000)
-  const grouped = await executeAgentTool("aggregate_telemetry",{group_by:"day",metric:"temperature"})
-  assert.equal(grouped.series?.length,14)
+  assert.equal(result.summary?.maquinas,3); assert.equal(result.summary?.leituras,2500)
+  const grouped = await executeAgentTool("aggregate_telemetry",{group_by:"day",metric:"coolant_temperature"})
+  assert.equal(grouped.series?.length,164)
   assert.ok(grouped.series?.every((row) => row.mobile >= row.desktop))
-  await assert.rejects(readQuery("UPDATE telemetry SET temp_motor_c = 0 WHERE false"), (error:unknown) => JSON.stringify(error).includes("25006")||String(error).includes("read-only"))
+  await assert.rejects(readQuery("UPDATE telemetry SET coolant_temperature_c = 0 WHERE false"), (error:unknown) => JSON.stringify(error).includes("25006")||String(error).includes("read-only"))
 })
 test("agente executa tool call, devolve dados ao modelo e valida OpenUI", async () => {
   const previousFetch = globalThis.fetch; const previousKey = process.env.DEEPSEEK_API_KEY; process.env.DEEPSEEK_API_KEY = "test-only"
   let count = 0
   globalThis.fetch = async (_url, init) => {
     const body = JSON.parse(String(init?.body)); count++
-    if (count === 1) { assert.equal(body.tool_choice,"required"); return Response.json({choices:[{message:{role:"assistant",content:null,tool_calls:[{id:"test_rows",type:"function",function:{name:"query_telemetry",arguments:JSON.stringify({machine_id:22,limit:2})}}]}}]}) }
+    if (count === 1) { assert.equal(body.tool_choice,"required"); return Response.json({choices:[{message:{role:"assistant",content:null,tool_calls:[{id:"test_rows",type:"function",function:{name:"query_telemetry",arguments:JSON.stringify({machine_id:"Makino-L1-Unit1-2013",limit:2})}}]}}]}) }
     const result = body.messages.find((message:{role:string}) => message.role === "tool")
-    assert.ok(result); assert.equal(JSON.parse(result.content).rows[0].id_maquina,22)
-    return Response.json({choices:[{message:{role:"assistant",content:'root = Analysis("Máquina 22", "Consultei a base.", [table])\ntable = DataResult("test_rows", "Leituras da máquina")'}}]})
+    assert.ok(result); assert.equal(JSON.parse(result.content).rows[0].machine_id,"Makino-L1-Unit1-2013")
+    return Response.json({choices:[{message:{role:"assistant",content:'root = Analysis("Makino L1", "Consultei a base.", [table])\ntable = DataResult("test_rows", "Leituras da máquina")'}}]})
   }
   try {
-    const response = await POST(new Request("http://localhost/api/ai",{method:"POST",body:JSON.stringify({question:"Analise a máquina 22",stream:true})}))
+    const response = await POST(new Request("http://localhost/api/ai",{method:"POST",body:JSON.stringify({question:"Analise a Makino-L1-Unit1-2013",stream:true})}))
     const events = (await response.text()).trim().split("\n").map((line) => JSON.parse(line))
     assert.ok(events.some((event) => event.type === "tool_start")); assert.ok(events.some((event) => event.type === "tool_result"))
     const answer = events.find((event) => event.type === "answer"); assert.ok(answer); assert.equal(answer.format,"openui")
@@ -68,25 +69,25 @@ test("falhas de autenticação do provedor são explícitas", async () => {
 test("alertas usam critérios fixos sobre toda a base",async()=>{
   const alerts=await executeAgentTool("get_alerts",{}),summary=await executeAgentTool("get_fleet_summary",{})
   assert.equal(alerts.summary?.leituras_em_alerta,summary.summary?.leituras_em_alerta)
-  assert.ok(alerts.rows?.every(row=>Number(row.temp_motor_c)>100||Number(row.vibracao_mm_s)>4.5))
+  assert.ok(alerts.rows?.every(row=>row.downtime===true||Number(row.coolant_temperature_c)>45||Number(row.spindle_bearing_temperature_c)>47||Number(row.spindle_vibration_um)>1.95||Number(row.tool_vibration_um)>44||Number(row.hydraulic_pressure_bar)<40||Number(row.hydraulic_pressure_bar)>185))
 })
 
 test("edição exige proposta, confirma um registro e detecta conflito",async()=>{
-  const id=1900000000+Math.floor(Math.random()*10000000)
-  const inserted=await prisma.$queryRawUnsafe<unknown[]>("INSERT INTO telemetry SELECT $1,id_maquina,data_hora,70,pressao_oleo_psi,rpm,vibracao_mm_s,consumo_l_h,horas_motor FROM telemetry ORDER BY id_leitura LIMIT 1 ON CONFLICT DO NOTHING RETURNING id_leitura",id)
-  assert.equal(inserted.length,1)
+  const machineId=`Test-Edit-${crypto.randomUUID()}`
+  const created=await prisma.telemetry.create({data:{recordKey:crypto.randomUUID().replaceAll("-",""),machineId,assemblyLine:"Shopfloor-Test",timestamp:new Date("2026-05-14T00:00:00.000Z"),coolantTemperature:30,spindleSpeed:20000,downtime:false,qualityIssues:[]}})
+  const id=Number(created.id)
   try {
-    const proposal=await proposeChange({reading_id:id,field:"temp_motor_c",value:71,reason:"Teste automatizado em registro isolado"})
-    const before=await readQuery("SELECT temp_motor_c::float AS value FROM telemetry WHERE id_leitura=$1",[id]);assert.equal(before[0].value,70)
+    const proposal=await proposeChange({reading_id:id,field:"coolant_temperature_c",value:31,reason:"Teste automatizado em registro isolado"})
+    const before=await readQuery("SELECT coolant_temperature_c::float AS value FROM telemetry WHERE id=$1",[id]);assert.equal(before[0].value,30)
     await applyChange(proposal.change.id)
-    const after=await readQuery("SELECT temp_motor_c::float AS value FROM telemetry WHERE id_leitura=$1",[id]);assert.equal(after[0].value,71)
+    const after=await readQuery("SELECT coolant_temperature_c::float AS value FROM telemetry WHERE id=$1",[id]);assert.equal(after[0].value,31)
     assert.equal((await applyChange(proposal.change.id)).status,"applied")
-    const stale=await proposeChange({reading_id:id,field:"temp_motor_c",value:72,reason:"Teste de conflito"})
-    await prisma.telemetry.update({where:{id:BigInt(id)},data:{temperature:73}})
+    const stale=await proposeChange({reading_id:id,field:"coolant_temperature_c",value:32,reason:"Teste de conflito"})
+    await prisma.telemetry.update({where:{id:created.id},data:{coolantTemperature:33}})
     await assert.rejects(applyChange(stale.change.id),/registro mudou/)
-    await assert.rejects(proposeChange({reading_id:id,field:"id_maquina",value:1,reason:"Campo proibido"}))
-    await assert.rejects(proposeChange({reading_id:id,field:"rpm",value:-1,reason:"Valor inválido"}))
-  } finally {await prisma.telemetryChange.deleteMany({where:{readingId:id}});await prisma.telemetry.delete({where:{id:BigInt(id)}});await prisma.commandReceipt.deleteMany({where:{OR:[{result:{path:["change","readingId"],equals:id}},{result:{path:["readingId"],equals:id}}]}})}
+    await assert.rejects(proposeChange({reading_id:id,field:"machine_id",value:1,reason:"Campo proibido"}))
+    await assert.rejects(proposeChange({reading_id:id,field:"spindle_speed_rpm",value:-1,reason:"Valor inválido"}))
+  } finally {await prisma.telemetryChange.deleteMany({where:{readingId:created.id}});await prisma.telemetry.deleteMany({where:{machineId}});await prisma.commandReceipt.deleteMany({where:{OR:[{result:{path:["change","readingId"],equals:id}},{result:{path:["readingId"],equals:id}}]}})}
 })
 
 test("conversas independentes preservam suas próprias mensagens",async()=>{
@@ -128,19 +129,28 @@ test("comandos concorrentes com a mesma chave executam uma única vez",async()=>
  }finally{await prisma.commandReceipt.deleteMany({where:{id:`test.once:${key}`}})}
 })
 
-test("ingestão TypeScript normaliza e não sobrescreve registros editados",async()=>{
- assert.equal(sensorNumber("78,4"),78.4);assert.equal(sensorNumber("-999"),null);assert.equal(sensorNumber("NaN"),null);assert.equal(sensorNumber(-10,true),null)
- assert.equal(telemetryDate("14/05/2026 23:30").toISOString(),"2026-05-14T23:30:00.000Z");assert.throws(()=>telemetryDate("31/02/2026 10:00"))
- const id=2000000000+Math.floor(Math.random()*1000000),key=crypto.randomUUID()
- const csv=`id_leitura,id_maquina,data_hora,temp_motor_c,pressao_oleo_psi,rpm,vibracao_mm_s,consumo_l_h,horas_motor\n${id},1,14/05/2026 23:30,"78,4",55,-999,NaN,2,50\n${id},1,14/05/2026 23:30,90,55,800,2,2,50\n${id+1},2,2026-05-14 23:30:00,80,55,900,2,2,50\n${id+2},3,data-invalida,80,55,900,2,2,50`
+test("ingestão TypeScript normaliza, limpa e não sobrescreve registros editados",async()=>{
+ assert.equal(parseSensorNumber("78,4",{positive:true,min:0,max:100}).value,78.4)
+ assert.equal(parseSensorNumber("-999",{positive:true,min:0,max:100}).value,null)
+ assert.equal(parseSensorNumber("NaN",{positive:true,min:0,max:100}).value,null)
+ assert.equal(parseSensorNumber(-10,{positive:true,min:0,max:100}).value,null)
+ assert.equal(parseSensorNumber(0,{positive:true,min:0,max:100}).value,null)
+ assert.equal(parseTelemetryDate("14-05-2026")!.toISOString(),"2026-05-14T00:00:00.000Z")
+ assert.equal(parseTelemetryDate("31-02-2026"),null)
+ const machineId=`Test-Import-${crypto.randomUUID()}`,key=crypto.randomUUID()
+ const header="date,machine_id,assembly_line,hydraulic_pressure_bar,coolant_pressure_bar,air_system_pressure_bar,coolant_temperature_c,hydraulic_oil_temperature_c,spindle_bearing_temperature_c,spindle_vibration_um,tool_vibration_um,spindle_speed_rpm,voltage_v,torque_nm,cutting_kn,downtime"
+ const row="14-05-2026,"+machineId+`,Shopfloor-L1,"142,5",5.4,6.2,"78,4",52.1,40.3,1.42,32.7,21400,412,38.6,12.4,No_Machine_Failure`
+ const second="15-05-2026,"+machineId+`,Shopfloor-L1,140,5.1,6.1,25.2,50.4,39.8,1.31,31.2,20800,408,37.1,11.8,Machine_Failure`
+ const csv=`${header}\n${row}\n${row}\n${second}\ninvalid-date,${machineId},Shopfloor-L1,140,5,6,25,50,40,1.3,31,20000,400,37,11,No_Machine_Failure`
  try {
-   const result=await importTelemetry(csv,key);assert.equal(result.inserted,2);assert.equal(result.duplicates,1);assert.equal(result.invalid,1)
-   const row=await prisma.telemetry.findUniqueOrThrow({where:{id:BigInt(id)}});assert.equal(row.temperature?.toNumber(),78.4);assert.equal(row.rpm,null);assert.equal(row.vibration,null)
-   await prisma.telemetry.update({where:{id:BigInt(id)},data:{temperature:85}})
+   const result=await importTelemetry(csv,key);assert.equal(result.inserted,2);assert.equal(result.duplicates,1);assert.equal(result.invalid,1);assert.ok(result.quality.repairedCells>=0)
+   const first=await prisma.telemetry.findFirstOrThrow({where:{machineId,timestamp:new Date("2026-05-14T00:00:00.000Z")}});assert.equal(first.coolantTemperature?.toNumber(),78.4);assert.equal(first.downtime,false)
+   const secondRow=await prisma.telemetry.findFirstOrThrow({where:{machineId,timestamp:new Date("2026-05-15T00:00:00.000Z")}});assert.equal(secondRow.downtime,true)
+   await prisma.telemetry.update({where:{id:first.id},data:{coolantTemperature:85}})
    assert.deepEqual(await importTelemetry(csv,key),result)
    await importTelemetry(csv,`${key}-again`)
-   assert.equal((await prisma.telemetry.findUniqueOrThrow({where:{id:BigInt(id)}})).temperature?.toNumber(),85)
- }finally{await prisma.telemetry.deleteMany({where:{id:{in:[BigInt(id),BigInt(id+1)]}}});await prisma.commandReceipt.deleteMany({where:{id:{in:[`telemetry.import-csv:${key}`,`telemetry.import-csv:${key}-again`]}}})}
+   assert.equal((await prisma.telemetry.findUniqueOrThrow({where:{id:first.id}})).coolantTemperature?.toNumber(),85)
+ }finally{await prisma.telemetry.deleteMany({where:{machineId}});await prisma.commandReceipt.deleteMany({where:{id:{in:[`telemetry.import-csv:${key}`,`telemetry.import-csv:${key}-again`]}}})}
 })
 
 test("reenvio da mesma mensagem reutiliza a execução salva",async()=>{
@@ -190,7 +200,7 @@ test("rastreamento preserva traceparent e relaciona a falha sem vazar payload",a
 })
 
 test("Redis real reutiliza a leitura e mudança de revisão cria outra chave",async(context)=>{
- const redis=await redisConnection();if(!redis){context.skip("REDIS_URL não configurado");return}
+ const redis=await redisConnection().catch(()=>null);if(!redis){context.skip("REDIS_URL não configurado ou indisponível");return}
  const key=`test:cache:${crypto.randomUUID()}`;let loads=0
  try {
    const load=async()=>({value:++loads})

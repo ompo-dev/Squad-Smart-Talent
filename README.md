@@ -39,7 +39,7 @@ Este é o repositório do projeto **Squad Smart Talent**. A aplicação web, a A
 | Relatórios | Visualizar a série diária e até 200 leituras recentes. |
 | Fontes de dados | Importar CSVs, consultar recebimentos por arquivo/webhook e acompanhar o estado real da atualização dos painéis. A conexão com APIs externas depende de um conector para a fonte escolhida. |
 | Copiloto IA | Fazer perguntas, arrastar arquivos para análise e apresentar tabelas, indicadores e gráficos. |
-| Importação pelo chat | Preparar CSV, XLSX ou JSON, conferir a prévia normalizada e confirmar a adição de novas leituras. IDs existentes são preservados. |
+| Importação pelo chat | Preparar CSV, XLSX ou JSON, conferir a prévia normalizada e confirmar a adição de novas leituras. Registros idênticos são deduplicados por `record_key`. |
 | Edição auditada | Corrigir um sensor de uma leitura com controle de versão e registro de antes/depois. No copiloto, a gravação exige confirmação do usuário. |
 | Importações em fila | Acompanhar processamento, tentativas, resultados e reenvio de jobs com falha. |
 | Atualizações em tempo real | Receber avisos de mudanças e recarregar os dados de outros clientes conectados. |
@@ -125,14 +125,14 @@ O primeiro build instala dependências e compila a aplicação. Gere a imagem de
 ## Primeiro uso
 
 1. Abra **Fontes de dados**, em `/dashboard/dados`.
-2. Selecione um CSV com as nove colunas descritas em [Formato e importação dos dados](#formato-e-importação-dos-dados).
+2. Selecione o CSV `data/machine_downtime.csv` ou um arquivo com as colunas descritas em [Formato e importação dos dados](#formato-e-importação-dos-dados).
 3. Clique em **Importar leituras**. Arquivos maiores entram na fila; acompanhe em **Importações**.
 4. Consulte **Visão geral**, **Frota**, **Alertas** e **Relatórios**.
 5. Com a chave DeepSeek configurada, abra **Copiloto IA** e pergunte: “Quais máquinas têm leituras em alerta?” ou “Mostre a temperatura média por dia”.
 
 **Fontes de dados** reúne arquivos CSV, APIs externas e webhooks, com a data da última coleta, os últimos recebimentos e o estado real da conexão de atualização dos painéis. O recebimento por webhook já existe e exige `WEBHOOK_SECRET`; consultar periodicamente uma API externa ainda depende de um conector com endereço, autenticação, frequência e mapeamento definidos para a fonte escolhida. A conexão WebSocket atualiza as telas quando novas leituras chegam à base; a frequência das medições depende do sistema de origem.
 
-No **Copiloto IA**, você pode arrastar até três arquivos de 5 MB para qualquer parte do chat ou usar **Anexar arquivo**. **Analisar arquivos** consulta o conteúdo sem gravar leituras. **Adicionar leituras** prepara CSV, XLSX ou JSON de telemetria: reconhece cabeçalhos equivalentes, separadores vírgula/ponto e vírgula/tabulação, números brasileiros e datas ISO ou brasileiras. O chat mostra uma amostra, duplicatas e erros; **Confirmar importação** inicia o processamento em fila. IDs já existentes são preservados. PDFs com texto, TXT e Markdown ficam disponíveis para análise; campos ausentes ou ambíguos precisam ser corrigidos antes da importação. Fórmulas de planilhas usam somente o resultado já armazenado no arquivo.
+No **Copiloto IA**, você pode arrastar até três arquivos de 5 MB para qualquer parte do chat ou usar **Anexar arquivo**. **Analisar arquivos** consulta o conteúdo sem gravar leituras. **Adicionar leituras** prepara CSV, XLSX ou JSON de telemetria: reconhece cabeçalhos equivalentes, separadores vírgula/ponto e vírgula/tabulação, números brasileiros e datas ISO ou brasileiras. O chat mostra uma amostra, duplicatas e erros; **Confirmar importação** inicia o processamento em fila. O sistema identifica registros idênticos pelo `record_key`, preserva dados existentes e registra as células corrigidas na prévia. PDFs com texto, TXT e Markdown ficam disponíveis para análise; campos ausentes ou ambíguos precisam ser corrigidos antes da importação. Fórmulas de planilhas usam somente o resultado já armazenado no arquivo.
 
 | Tela | Caminho |
 | --- | --- |
@@ -221,7 +221,7 @@ O comando `npm run build` já faz essa cópia automaticamente.
 | `npm run build` | Gerar o cliente Prisma, copiar os assets do Swagger e compilar o Next.js. |
 | `npm run start` | Servir a aplicação compilada; execute o build e as migrações antes. |
 | `npm run db:migrate` | Aplicar as migrações versionadas. |
-| `npm run data:import` | Importar o CSV definido em `CSV_PATH` ou `data/telemetria_suja.csv`. |
+| `npm run data:import` | Importar o CSV definido em `CSV_PATH` ou `data/machine_downtime.csv`. |
 | `npm run worker` | Processar a fila e publicar eventos pendentes. |
 | `npm run realtime` | Iniciar o gateway WebSocket, na porta 3002. |
 | `npm run test:agent` | Executar os arquivos `tests/*.test.ts` sequencialmente. |
@@ -251,7 +251,7 @@ Use [.env.example](.env.example) como referência. `.env` é ignorado pelo Git e
 | `GOOGLE_CLIENT_SECRET` | Para habilitar o login Google | Segredo do cliente OAuth Google. |
 | `REALTIME_PUBLIC_URL` | Quando o navegador usa outro endereço WebSocket | No exemplo: `ws://localhost:3002`. Sem valor explícito, a API deriva o endereço do host da requisição. |
 | `REALTIME_ALLOWED_ORIGINS` | Para origens adicionais no gateway | Lista separada por vírgulas; exemplo: `http://localhost:3000`. |
-| `CSV_PATH` | Opcional, para o importador por terminal | Padrão: `data/telemetria_suja.csv`. |
+| `CSV_PATH` | Opcional, para o importador por terminal | Padrão: `data/machine_downtime.csv`. |
 | `WEBHOOK_URL` | Opcional, para o script de envio | Padrão: `http://localhost:3000/api/webhooks/telemetry`. |
 | `OBSERVABILITY_LOGS` | Opcional | `off` desliga os spans em stdout; a persistência no banco continua ativa. |
 
@@ -271,45 +271,55 @@ Sem as três variáveis válidas, o login permanece desabilitado e a interface i
 
 ### CSV esperado
 
-O arquivo deve conter estas nove colunas, com os nomes exatos:
+O projeto usa o **Machine Downtime.csv** (2.500 leituras, 3 máquinas, 3 linhas de montagem). O arquivo está em `data/machine_downtime.csv` e também em `docs/entrega-aula-1/dados/machine_downtime.csv`.
 
-| Coluna no CSV | Significado | Exemplo |
+O dataset original pode ser importado diretamente; o sistema normaliza os cabeçalhos e limpa as células. As colunas canônicas são:
+
+| Coluna | Significado | Exemplo |
 | --- | --- | --- |
-| `id_leitura` | Identificador único da leitura; inteiro positivo | `1` |
-| `id_maquina` | Identificador da máquina; inteiro positivo | `24` |
-| `data_hora` | Data e hora da coleta, interpretadas como UTC | `2026-10-24 12:00:00` |
-| `temp_motor_c` | Temperatura do motor em °C | `78.4` |
-| `pressao_oleo_psi` | Pressão do óleo em psi | `42` |
-| `rpm` | Rotação do motor em RPM | `1200` |
-| `vibracao_mm_s` | Vibração em mm/s | `2.1` |
-| `consumo_l_h` | Consumo em litros por hora | `12` |
-| `horas_motor` | Horas acumuladas do motor | `1500` |
+| `date` | Data (ou data e hora) da leitura, interpretada como UTC | `31-12-2021` |
+| `machine_id` | Identificador textual da máquina | `Makino-L1-Unit1-2013` |
+| `assembly_line` | Linha de montagem | `Shopfloor-L1` |
+| `hydraulic_pressure_bar` | Pressão hidráulica em bar | `142.5` |
+| `coolant_pressure_bar` | Pressão do refrigerante em bar | `5.4` |
+| `air_system_pressure_bar` | Pressão do ar em bar | `6.2` |
+| `coolant_temperature_c` | Temperatura do refrigerante em °C | `28.4` |
+| `hydraulic_oil_temperature_c` | Temperatura do óleo hidráulico em °C | `52.1` |
+| `spindle_bearing_temperature_c` | Temperatura do mancal do spindle em °C | `40.3` |
+| `spindle_vibration_um` | Vibração do spindle em µm | `1.42` |
+| `tool_vibration_um` | Vibração da ferramenta em µm | `32.7` |
+| `spindle_speed_rpm` | Rotação do spindle em rpm | `21400` |
+| `voltage_v` | Tensão em V | `412` |
+| `torque_nm` | Torque em Nm | `38.6` |
+| `cutting_kn` | Força de corte em kN | `12.4` |
+| `downtime` | Rótulo de parada/falha | `No_Machine_Failure` |
 
-Um arquivo mínimo válido:
+Um arquivo mínimo válido (apenas data, máquina e linha são obrigatórias):
 
 ```csv
-id_leitura,id_maquina,data_hora,temp_motor_c,pressao_oleo_psi,rpm,vibracao_mm_s,consumo_l_h,horas_motor
-1,24,2026-10-24 12:00:00,78.4,42,1200,2.1,12,1500
-2,24,2026-10-24 12:05:00,101.2,41,1250,4.8,12.5,1500.1
+date,machine_id,assembly_line,coolant_temperature_c,spindle_vibration_um,downtime
+31-12-2021,Makino-L1-Unit1-2013,Shopfloor-L1,28.4,1.42,No_Machine_Failure
+31-12-2021,Makino-L2-Unit1-2013,Shopfloor-L2,29.1,1.51,Machine_Failure
 ```
 
-O separador é **vírgula**. Valores com vírgula decimal precisam estar entre aspas, por exemplo `"78,4"`. Datas aceitam `AAAA-MM-DD HH:mm[:ss]` ou `DD/MM/AAAA HH:mm[:ss]`, com espaço ou `T` entre data e hora; sem fuso explícito, são interpretadas como UTC. Timestamps ISO 8601 completos com `Z` ou deslocamento de fuso também são aceitos, preservando milissegundos. No chat, arquivos separados por ponto e vírgula ou tabulação são normalizados antes da importação.
+O separador pode ser **vírgula**, **ponto e vírgula** ou **tabulação**. Valores com vírgula decimal podem estar entre aspas, por exemplo `"28,4"`. Datas aceitam `DD-MM-AAAA`, `DD/MM/AAAA`, `AAAA-MM-DD` e timestamps ISO 8601 com fuso; sem hora, a leitura é gravada à meia-noite UTC.
 
-### Regras da carga
+### Regras da carga e limpeza automática
 
-- Sensores vazios, não numéricos ou com a sentinela `-999` tornam-se `null`.
-- Valores negativos em pressão, RPM, vibração, consumo e horas também tornam-se `null`.
-- Datas impossíveis e identificadores inválidos fazem a linha ser contabilizada como inválida.
-- IDs repetidos no arquivo são duplicatas; a primeira ocorrência válida é preservada.
-- IDs existentes no banco são preservados, incluindo correções feitas pela aplicação.
-- O resultado informa linhas recebidas, válidas, inseridas, existentes, duplicadas e inválidas, com até cinco exemplos de erro.
+- Cabeçalhos equivalentes em português/inglês são reconhecidos (por exemplo `Machine_ID`, `Assembly_Line_No`, `Hydraulic_Oil_Temperature(?C)`).
+- Células vazias, sentinelas (`-999`, `NaN`, `N/A`), zeros em sensores físicos, negativos e valores acima da faixa física tornam-se `null` e geram um item em `quality_issues`.
+- Outliers estatísticos (fora de Q1 − 3·IQR / Q3 + 3·IQR) são mantidos, mas sinalizados na qualidade da leitura.
+- Rótulos `Machine_Failure`/`No_Machine_Failure` são convertidos em `downtime` booleano; rótulos desconhecidos viram `null` e são contabilizados.
+- Linhas sem data, máquina ou linha de montagem são inválidas. Linhas sem nenhum sensor válido são mantidas e sinalizadas com `sem sensores`.
+- Cada leitura recebe um `record_key` determinístico (SHA-256 do conteúdo limpo). Registros idênticos são deduplicados e reimportações não duplicam dados.
+- O resultado informa linhas recebidas, válidas, inseridas, existentes, duplicadas e inválidas, além de células ausentes/zeradas/negativas/fora da faixa, outliers, rótulos ausentes e linhas sem sensores.
 - Arquivos sem leituras válidas são rejeitados. O upload aceita até **5 MiB**, exibidos como 5 MB.
 
 Pela API, arquivos de até **64 KiB** podem ser processados na própria requisição. Acima disso, ou com `?async=true`, a API retorna **202 Accepted** com a URL do job no cabeçalho `Location`.
 
 ### Importação por terminal
 
-O arquivo `telemetria_suja.csv` não está incluído no repositório. Para usar o caminho padrão, crie `data/` e coloque a coleta em `data/telemetria_suja.csv`.
+O dataset `data/machine_downtime.csv` acompanha o repositório. Para usar outra coleta, defina `CSV_PATH` ou substitua esse arquivo.
 
 Com a aplicação no Docker:
 
@@ -343,7 +353,7 @@ O chat combina **DeepSeek**, que interpreta a pergunta e solicita ferramentas, c
 | `query_telemetry` | Consultar leituras por ID, máquina, período e limites de sensores. |
 | `aggregate_telemetry` | Calcular agregações por dia ou máquina. |
 | `inspect_telemetry_schema` | Explicar as colunas disponíveis. |
-| `get_alerts` | Consultar alertas com os critérios fixos de temperatura e vibração. |
+| `get_alerts` | Consultar leituras com parada registrada ou sensor em faixa crítica de triagem. |
 | `search_uploaded_file` | Ler ou pesquisar texto literal de um anexo, com referências às linhas. |
 | `propose_telemetry_change` | Preparar a alteração de um sensor de uma leitura. |
 | `analyze_uploaded_telemetry` | Normalizar e analisar um anexo de telemetria, retornando indicadores, amostra e série diária sem importar leituras. |
@@ -359,20 +369,20 @@ O envio apresenta erros por arquivo, aceita os arquivos válidos de uma seleçã
 
 | Ação | Comportamento |
 | --- | --- |
-| **Analisar arquivos** | Consulta o anexo sem importar leituras. Em CSV, XLSX e JSON de telemetria, calcula indicadores sobre todas as leituras válidas, com tabela de até 50 linhas e gráfico de temperatura dos até 200 dias mais recentes. |
+| **Analisar arquivos** | Consulta o anexo sem importar leituras. Em CSV, XLSX e JSON de manutenção, aplica a mesma limpeza, calcula indicadores sobre todas as leituras válidas, com tabela de até 50 linhas e gráfico da temperatura do refrigerante dos até 200 dias mais recentes. |
 | **Adicionar leituras** | Prepara uma prévia de CSV, XLSX ou JSON com amostra de até cinco leituras, contagens de linhas válidas, duplicadas e inválidas e exemplos de erros. |
 | **Confirmar importação** | Envia o arquivo normalizado à fila. O cartão acompanha o processamento e apresenta quantas leituras foram adicionadas, já existiam ou foram ignoradas. Repetir a confirmação reutiliza o mesmo processamento. |
 
 Para importar no chat:
 
-1. Anexe um **CSV, XLSX ou JSON** com as nove colunas de telemetria.
+1. Anexe um **CSV, XLSX ou JSON** com as colunas de manutenção (no mínimo data, máquina e linha).
 2. Escolha **Adicionar leituras** ou peça na mensagem: “Prepare a importação deste arquivo”.
 3. Confira o cartão **Revisar novas leituras**, incluindo amostra, datas, valores ausentes e erros.
 4. Clique em **Confirmar importação** e acompanhe o resultado no cartão ou em **Importações**.
 
-A normalização reconhece cabeçalhos equivalentes em português/inglês, como `id_leitura`/`id` e `id_maquina`/`machineId`; separadores vírgula, ponto e vírgula ou tabulação; números com vírgula decimal; datas brasileiras e timestamps ISO 8601. JSON pode conter uma lista de objetos ou um objeto com `readings`, `leituras`, `data` ou `dados`. No XLSX, abas auxiliares são ignoradas e fórmulas usam somente o resultado já armazenado no arquivo.
+A normalização reconhece cabeçalhos equivalentes em português/inglês, como `date`/`data` e `machine_id`/`máquina`; separadores vírgula, ponto e vírgula ou tabulação; números com vírgula decimal; datas brasileiras e timestamps ISO 8601. JSON pode conter uma lista de objetos ou um objeto com `readings`, `leituras`, `data` ou `dados`. No XLSX, abas auxiliares são ignoradas e fórmulas usam somente o resultado já armazenado no arquivo.
 
-Colunas obrigatórias ausentes ou ambíguas impedem a importação; o agente explica o problema para correção. Linhas inválidas e IDs repetidos são contabilizados, e IDs existentes no banco são preservados. Datas sem fuso são interpretadas como UTC; o cartão de revisão exibe horários de Brasília. PDF, TXT e Markdown permanecem disponíveis para análise.
+Colunas obrigatórias ausentes ou ambíguas impedem a importação; o agente explica o problema para correção. Linhas inválidas e registros idênticos são contabilizados. Datas sem fuso são interpretadas como UTC; o cartão de revisão exibe horários de Brasília. PDF, TXT e Markdown permanecem disponíveis para análise.
 
 O cartão de importação usa **ImportReview**; o agente prepara a prévia, e somente a confirmação inicia o processamento. Conteúdo de anexos é tratado como dado não confiável, nunca como instrução para o sistema. Indicadores de um anexo são apresentados como resultados daquele arquivo, sem misturá-los com as contagens da base persistida.
 
@@ -464,7 +474,7 @@ Alguns componentes continuam diretamente em `components/`, e arquivos antigos re
 
 - Use o alias `@/` para imports internos, conforme `tsconfig.json`.
 - Mantenha arquivos de módulos/componentes em `kebab-case` e componentes React em `PascalCase`.
-- Modelos Prisma usam propriedades em inglês e `@map` para as colunas do banco. CSVs e campos editáveis da API preservam nomes como `temp_motor_c`; webhooks usam nomes como `temperature`.
+- Modelos Prisma usam propriedades em inglês e `@map` para as colunas do banco. CSVs, campos editáveis da API e webhooks usam as colunas canônicas em `snake_case`, como `coolant_temperature_c`, `spindle_vibration_um` e `downtime`.
 - Mantenha segredos no ambiente do servidor, fora de componentes de cliente e de variáveis `NEXT_PUBLIC_*`.
 - Preserve o estilo do arquivo editado. Ainda não há um formatador compartilhado configurado.
 
@@ -721,22 +731,22 @@ Consulte `GET /api/telemetry/records/1`. A resposta inclui `version` e `ETag`. E
 ```json
 {
   "expectedVersion": 0,
-  "field": "temp_motor_c",
-  "value": 79.5,
+  "field": "coolant_temperature_c",
+  "value": 28.8,
   "reason": "Correção após conferência da coleta"
 }
 ```
 
-Campos editáveis: `temp_motor_c`, `pressao_oleo_psi`, `rpm`, `vibracao_mm_s`, `consumo_l_h` e `horas_motor`. O valor pode ser numérico ou `null`, dentro das faixas validadas. Um conflito retorna 409; consulte novamente a leitura antes de tentar outra alteração.
+Campos editáveis são as 12 colunas de sensores: `hydraulic_pressure_bar`, `coolant_pressure_bar`, `air_system_pressure_bar`, `coolant_temperature_c`, `hydraulic_oil_temperature_c`, `spindle_bearing_temperature_c`, `spindle_vibration_um`, `tool_vibration_um`, `spindle_speed_rpm`, `voltage_v`, `torque_nm` e `cutting_kn`. O valor pode ser numérico ou `null`, dentro das faixas físicas validadas. Um conflito retorna 409; consulte novamente a leitura antes de tentar outra alteração.
 
 ### Webhook de telemetria
 
 O endpoint recebe o formato de [examples/webhook.json](examples/webhook.json), com `eventId` e uma lista `readings`. Limites: **500 leituras** e **512 KiB** por lote.
 
-- IDs novos começam na versão zero. Para atualizar IDs existentes, envie `expectedVersion` em cada leitura.
+- O `record_key` é derivado do conteúdo limpo da leitura. Para atualizar um registro existente, envie o `record_key` retornado na criação e o `expectedVersion`; sem `record_key`, a leitura é tratada como nova.
 - Um conflito desfaz o lote inteiro.
 - `eventId` identifica a entrega: repetir o mesmo evento é idempotente; mudar seu conteúdo exige outro identificador.
-- Sensores usam nomes em inglês e números ou `null`; `timestamp` usa ISO 8601 UTC.
+- Sensores usam as colunas canônicas em `snake_case` e números ou `null`; `date` usa ISO 8601 com fuso.
 
 | Cabeçalho obrigatório | Valor |
 | --- | --- |
@@ -771,7 +781,7 @@ Web, worker e realtime têm rotação de logs de 10 MB, com três arquivos. A in
 
 A suíte usa o executor do Node.js via `tsx`. Verifica consultas, importação, streaming, conversas, edições, concorrência, idempotência, rollback, traces, cache, OpenAPI, webhook e jobs. [tests/chat-attachments.test.ts](tests/chat-attachments.test.ts) cobre limites de anexos, normalização de CSV/XLSX/JSON, datas com fuso, fórmulas armazenadas, arquivos malformados, prévias sem gravação, confirmação idempotente e renderização do contrato `ImportReview`. Também verifica que indicadores usam o arquivo completo mesmo quando tabela e gráfico são limitados.
 
-**Pré-requisitos da suíte de integração:** PostgreSQL com migrações aplicadas, Redis acessível e uma base com **4.000 leituras, 24 máquinas e 14 dias**, incluindo alertas da máquina 22. A CI gera essa base com dados sintéticos, sem depender do CSV original. O comando `npm run db:seed:ci` exige `CI=true`, um banco local chamado `telemetry_ci` e a tabela de leituras vazia; recusa sobrescrever uma base existente.
+**Pré-requisitos da suíte de integração:** PostgreSQL com migrações aplicadas, Redis acessível e uma base com **2.500 leituras, 3 máquinas e 164 dias**, incluindo máquinas em faixa crítica. A CI gera essa base com dados sintéticos, sem depender do CSV original. O comando `npm run db:seed:ci` exige `CI=true`, um banco local chamado `telemetry_ci` e a tabela de leituras vazia; recusa sobrescrever uma base existente.
 
 Os testes usam banco e Redis reais e criam registros temporários. Execute em um ambiente dedicado de desenvolvimento/teste, com o worker parado para evitar processamento das fixtures de fila. O provedor de IA é simulado; não é necessário consumir a API real.
 
@@ -820,7 +830,7 @@ O fluxo normal é **branch de trabalho → PR para `dev` → homologação → P
 1. Valida o título do PR no padrão Conventional Commits, a branch e seu destino. Não reescreve mensagens de commits locais.
 2. Executa testes das regras de contribuição e dos dados sintéticos, além de cenários de falha/recuperação do deploy com Docker simulado.
 3. Instala dependências com `npm ci`, gera e valida o Prisma e verifica os tipos.
-4. Sobe PostgreSQL e Redis temporários, aplica migrações e gera 4.000 leituras sintéticas para a suíte de integração.
+4. Sobe PostgreSQL e Redis temporários, aplica migrações e gera 2.500 leituras sintéticas para a suíte de integração.
 5. Executa os testes com relatório JUnit e compila a aplicação.
 6. Constrói a imagem Docker e sobe web, worker, gateway, PostgreSQL e Redis em uma stack descartável.
 7. Verifica HTTP, Swagger, assets, webhook assinado, conflitos de edição, idempotência, fila, retry, WebSocket e traces distribuídos.
@@ -915,9 +925,9 @@ O PostgreSQL usa o volume `telemetry_pg`, e o Redis, `telemetry_redis`, sob o pr
 | Docker não conecta ao daemon | Inicie o Docker Desktop/serviço Docker e confirme o uso de containers Linux. |
 | Primeiro início tenta baixar `d-a-web` e retorna `pull access denied` | Execute `docker compose build web` antes de `docker compose up -d`; worker e gateway usam a imagem local da aplicação. |
 | Porta 3000, 3002 ou 5432 ocupada | Verifique outros serviços ou outra stack do projeto antes de iniciar. |
-| Dashboard vazio | Importe uma coleta em **Fontes de dados**; o projeto não inclui o CSV original nem faz carga automática. |
+| Dashboard vazio | Importe o `data/machine_downtime.csv` em **Fontes de dados** ou execute `npm run data:import`. |
 | Arquivo anexado sem novas leituras no painel | No chat, escolha **Adicionar leituras** e confirme no cartão. A análise de anexos consulta o arquivo sem gravar leituras. |
-| Prévia indica campos ausentes ou ambíguos | Confira as nove colunas de telemetria e remova colunas duplicadas que representem o mesmo campo. Arquivos sem essa estrutura continuam disponíveis para análise. |
+| Prévia indica campos ausentes ou ambíguos | Confira as colunas de manutenção (no mínimo data, máquina e linha) e remova colunas duplicadas que representem o mesmo campo. Arquivos sem essa estrutura continuam disponíveis para análise. |
 | API externa não atualiza a base | Defina a origem e implemente o conector com endereço, autenticação, frequência e mapeamento; a tela ainda não cadastra nem consulta APIs automaticamente. |
 | Copiloto indisponível | Confira chave, modelo e logs de `web`. Chave recusada, saldo insuficiente e limite do provedor geram erros próprios. |
 | Importação permanece na fila | Confira worker, Redis, `/api/jobs/health` e logs. Reenvie pelo painel se o job estiver em falha. |
@@ -937,7 +947,7 @@ O PostgreSQL usa o volume `telemetry_pg`, e o Redis, `telemetry_redis`, sob o pr
 - **Configurações:** a página apresenta áreas previstas; ainda não permite salvar limites operacionais, canais de notificação ou credenciais.
 - **Alertas:** os limiares são fixos e indicam triagem. A aplicação não implementa diagnóstico preditivo nem controle físico das máquinas.
 - **Dados:** as telas representam o conteúdo recebido no PostgreSQL. Conectores de sensores precisam alimentar essa base.
-- **Anexos:** PDF, TXT e Markdown são usados para análise; PDFs digitalizados exigem OCR prévio. A importação de CSV, XLSX e JSON requer as nove colunas, uma prévia válida e confirmação. Fórmulas de planilhas não são recalculadas.
+- **Anexos:** PDF, TXT e Markdown são usados para análise; PDFs digitalizados exigem OCR prévio. A importação de CSV, XLSX e JSON requer no mínimo data, máquina e linha, uma prévia válida e confirmação. Fórmulas de planilhas não são recalculadas.
 - **APIs externas:** o painel apresenta a opção de integração, mas a consulta periódica depende de um conector para a fonte escolhida. O recebimento de leituras por webhook assinado já está implementado.
 - **Eventos:** WebSocket exige gateway ativo e Redis acessível. Ao reconectar, o cliente consulta a API para recuperar o estado.
 - **Qualidade automatizada:** a CI usa fixture sintética e testa tipos, contratos, aplicação e containers; lint de estilo ainda precisa de configuração.

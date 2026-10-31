@@ -1,7 +1,3 @@
-﻿id_maquina;leituras;alertas_sensor;ocorrencias_por_100_leituras;media_frota_por_100_leituras
-5;179;6;3.35;0.68
-9;183;6;3.28;0.68
-21;175;5;2.86;0.68
-19;170;3;1.76;0.68
-22;175;3;1.71;0.68
-11;180;2;1.11;0.68
+machine_id;leituras;paradas;taxa_parada_pct;media_frota_pct
+Makino-L1-Unit1-2013;874;454;51.95;50.6
+Makino-L3-Unit1-2015;818;415;50.73;50.6
