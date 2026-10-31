@@ -4,7 +4,7 @@ import {CommandConflict,payloadHash} from "@/lib/application/command-bus"
 import {parseTelemetry} from "@/lib/application/import-telemetry"
 import {normalizeTelemetryAttachment} from "@/lib/application/normalize-telemetry-file"
 import {submitImport} from "@/lib/application/import-jobs"
-import {evaluateReading} from "@/lib/telemetry-schema"
+import {evaluateReading,sensorDefinitions} from "@/lib/telemetry-schema"
 import type {AttachmentImportStatus,TelemetryImportPreview,TelemetryImportResult,ToolResult} from "@/lib/chat-types"
 
 const fileId=z.string().uuid(),hash=z.string().regex(/^[a-f0-9]{64}$/)
@@ -29,7 +29,11 @@ async function prepare(id:string){
     fileId:id,name:file.name,hash:payloadHash({fileId:id,csv}),received:parsed.received,valid:parsed.valid,duplicates:parsed.duplicates,invalid:parsed.invalid,errors:parsed.errors,quality:parsed.quality,
     sample:parsed.readings.slice(0,5).map(row=>({
       recordKey:row.recordKey,machineId:row.machineId,assemblyLine:row.assemblyLine,timestamp:row.timestamp.toISOString(),
-      status:evaluateReading(row,row.downtime).status,coolantTemperature:row.coolantTemperature,spindleVibration:row.spindleVibration,downtime:row.downtime,
+      status:evaluateReading(row,row.downtime).status,
+      hydraulicPressure:row.hydraulicPressure,coolantPressure:row.coolantPressure,airSystemPressure:row.airSystemPressure,
+      coolantTemperature:row.coolantTemperature,hydraulicOilTemperature:row.hydraulicOilTemperature,spindleBearingTemperature:row.spindleBearingTemperature,
+      spindleVibration:row.spindleVibration,toolVibration:row.toolVibration,spindleSpeed:row.spindleSpeed,voltage:row.voltage,torque:row.torque,cutting:row.cutting,
+      downtime:row.downtime,downtimeLabel:row.downtimeLabel,qualityIssues:row.qualityIssues,
     })),
   }
   return {csv,preview}
@@ -39,11 +43,18 @@ export async function prepareAttachmentImport(id:string){return (await prepare(f
 export async function analyzeAttachmentTelemetry(id:string):Promise<ToolResult["data"]>{
   const {file,parsed}=await readTelemetryFile(fileId.parse(id))
   const machines=new Set<string>(),lines=new Set<string>(),days=new Map<string,{sum:number;count:number;max:number}>()
+  const sensorTotals=Object.fromEntries(sensorDefinitions.map(definition=>[definition.key,{sum:0,count:0,min:Infinity,max:-Infinity}]))
   let temperature=0,temperatures=0,downtimeReadings=0,criticalReadings=0,start="",end=""
   const rows:Record<string,unknown>[]=[]
   for(const row of parsed.readings){
     const timestamp=row.timestamp.toISOString(),value=row.coolantTemperature
     machines.add(row.machineId);lines.add(row.assemblyLine);if(!start||timestamp<start)start=timestamp;if(timestamp>end)end=timestamp
+    for(const definition of sensorDefinitions){
+      const sensor=row[definition.key]
+      if(sensor===null)continue
+      const total=sensorTotals[definition.key]
+      total.sum+=sensor;total.count++;total.min=Math.min(total.min,sensor);total.max=Math.max(total.max,sensor)
+    }
     const evaluation=evaluateReading(row,row.downtime)
     if(row.downtime===true)downtimeReadings++
     if(evaluation.status==="Falha"||evaluation.status==="Crítico")criticalReadings++
@@ -52,17 +63,18 @@ export async function analyzeAttachmentTelemetry(id:string):Promise<ToolResult["
       const day=timestamp.slice(0,10),entry=days.get(day)??{sum:0,count:0,max:-Infinity}
       entry.sum+=value;entry.count++;entry.max=Math.max(entry.max,value);days.set(day,entry)
     }
-    if(rows.length<50)rows.push({recordKey:row.recordKey,machine_id:row.machineId,assembly_line:row.assemblyLine,date:timestamp,coolant_temperature_c:value,spindle_vibration_um:row.spindleVibration,spindle_bearing_temperature_c:row.spindleBearingTemperature,downtime:row.downtime,status:evaluation.status,quality_issues:row.qualityIssues})
+    if(rows.length<50)rows.push({record_key:row.recordKey,machine_id:row.machineId,assembly_line:row.assemblyLine,date:timestamp,...Object.fromEntries(sensorDefinitions.map(definition=>[definition.column,row[definition.key]])),downtime:row.downtime,downtime_label:row.downtimeLabel,status:evaluation.status,quality_issues:row.qualityIssues})
   }
+  const sensorSummary=(field:"sum"|"min"|"max")=>Object.fromEntries(sensorDefinitions.map(definition=>{const total=sensorTotals[definition.key];return [definition.key,total.count?Number((field==="sum"?total.sum/total.count:total[field]).toFixed(3)):null]}))
   return {
     rows,series:[...days].sort(([a],[b])=>a.localeCompare(b)).slice(-200).map(([date,day])=>({date,desktop:Number((day.sum/day.count).toFixed(2)),mobile:day.max})),
     summary:{
       arquivo:file.name,recebidas:parsed.received,leituras_validas:parsed.valid,maquinas:machines.size,linhas:lines.size,
       duplicadas:parsed.duplicates,invalidas:parsed.invalid,inicio:start,fim:end,temperatura_refrigerante_media_c:temperatures?Number((temperature/temperatures).toFixed(2)):null,
       paradas:downtimeReadings,leituras_criticas:criticalReadings,celulas_corrigidas:parsed.quality.repairedCells,outliers_sinalizados:parsed.quality.outlierCells,
-      rotulos_ausentes:parsed.quality.missingLabels,
+      rotulos_ausentes:parsed.quality.missingLabels,medias_sensores:sensorSummary("sum"),maximos_sensores:sensorSummary("max"),minimos_sensores:sensorSummary("min"),
     },
-    description:`Análise de ${file.name}, sem adicionar leituras à base. O arquivo passou pela limpeza automática (${parsed.quality.repairedCells} células corrigidas e ${parsed.quality.outlierCells} outliers sinalizados). Indicadores calculados sobre todas as leituras válidas; tabela limitada a 50. Gráfico: média e máxima diária da temperatura do refrigerante em °C, até 200 dias mais recentes.`,
+    description:`Análise de ${file.name}, sem adicionar leituras à base. O arquivo passou pela limpeza automática (${parsed.quality.repairedCells} células corrigidas e ${parsed.quality.outlierCells} outliers sinalizados). Indicadores calculados sobre todas as leituras válidas; tabela limitada a 50 e gráfico com até 200 dias. Todas as colunas de sensores aparecem na tabela.`,
   }
 }
 

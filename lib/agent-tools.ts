@@ -21,22 +21,22 @@ const filters = z.object({
 }).strict()
 export const queryInput = filters.extend({
   limit: z.number().int().min(1).max(200).default(30),
-  order_by: z.enum(["date","coolant_temperature_c","spindle_bearing_temperature_c","spindle_vibration_um","tool_vibration_um","hydraulic_pressure_bar","spindle_speed_rpm"]).default("date"),
+  order_by: z.enum(["date","hydraulic_pressure_bar","coolant_pressure_bar","air_system_pressure_bar","coolant_temperature_c","hydraulic_oil_temperature_c","spindle_bearing_temperature_c","spindle_vibration_um","tool_vibration_um","spindle_speed_rpm","voltage_v","torque_nm","cutting_kn","downtime"]).default("date"),
   descending: z.boolean().default(true),
 }).strict()
-const aggregateMetrics = ["coolant_temperature","bearing_temperature","spindle_vibration","tool_vibration","hydraulic_pressure","spindle_speed","voltage","torque","downtime"] as const
+const aggregateMetrics = ["hydraulic_pressure","coolant_pressure","air_pressure","coolant_temperature","oil_temperature","bearing_temperature","spindle_vibration","tool_vibration","spindle_speed","voltage","torque","cutting","downtime"] as const
 export const aggregateInput = filters.extend({ group_by: z.enum(["day","machine","line"]).default("day"), metric: z.enum(aggregateMetrics).default("coolant_temperature") }).strict()
 const metricColumns = {
-  coolant_temperature: "coolant_temperature_c", bearing_temperature: "spindle_bearing_temperature_c",
+  hydraulic_pressure: "hydraulic_pressure_bar", coolant_pressure: "coolant_pressure_bar", air_pressure: "air_system_pressure_bar",
+  coolant_temperature: "coolant_temperature_c", oil_temperature: "hydraulic_oil_temperature_c", bearing_temperature: "spindle_bearing_temperature_c",
   spindle_vibration: "spindle_vibration_um", tool_vibration: "tool_vibration_um",
-  hydraulic_pressure: "hydraulic_pressure_bar", spindle_speed: "spindle_speed_rpm",
-  voltage: "voltage_v", torque: "torque_nm", downtime: "downtime",
+  spindle_speed: "spindle_speed_rpm", voltage: "voltage_v", torque: "torque_nm", cutting: "cutting_kn", downtime: "downtime",
 } as const
 const metricLabels = {
-  coolant_temperature: "temperatura do refrigerante (°C)", bearing_temperature: "temperatura do mancal (°C)",
+  hydraulic_pressure: "pressão hidráulica (bar)", coolant_pressure: "pressão do refrigerante (bar)", air_pressure: "pressão do ar (bar)",
+  coolant_temperature: "temperatura do refrigerante (°C)", oil_temperature: "temperatura do óleo hidráulico (°C)", bearing_temperature: "temperatura do mancal (°C)",
   spindle_vibration: "vibração do spindle (µm)", tool_vibration: "vibração da ferramenta (µm)",
-  hydraulic_pressure: "pressão hidráulica (bar)", spindle_speed: "rotação (rpm)",
-  voltage: "tensão (V)", torque: "torque (Nm)", downtime: "taxa de parada (0 a 1)",
+  spindle_speed: "rotação (rpm)", voltage: "tensão (V)", torque: "torque (Nm)", cutting: "força de corte (kN)", downtime: "taxa de parada (0 a 1)",
 } as const
 const filterProperties = {
   reading_id:{type:"integer",description:"ID exato da leitura, útil para consultar um registro antes de editar"},
@@ -50,7 +50,7 @@ const filterProperties = {
 const tool = (name: string, description: string, properties: Record<string, unknown>,required:string[]=[]) => ({ type: "function", function: { name, description, parameters: { type: "object", properties, required, additionalProperties: false } } })
 export const agentTools = [
   tool("get_fleet_summary", "Resumo real da base de manutenção: leituras, máquinas, linhas, período, médias dos sensores, paradas e alertas. Sempre use para perguntas gerais.", {}),
-  tool("query_telemetry", "Consulta leituras reais com filtros combináveis e ordenação. Retorna até 200 registros com resultId utilizável em DataResult.", { ...filterProperties, limit: { type: "integer", minimum: 1, maximum: 200 }, order_by: { type: "string", enum: ["date","coolant_temperature_c","spindle_bearing_temperature_c","spindle_vibration_um","tool_vibration_um","hydraulic_pressure_bar","spindle_speed_rpm"] }, descending: { type: "boolean" } }),
+  tool("query_telemetry", "Consulta leituras reais com filtros combináveis e ordenação. Retorna até 200 registros com resultId utilizável em DataResult.", { ...filterProperties, limit: { type: "integer", minimum: 1, maximum: 200 }, order_by: { type: "string", enum: ["date","hydraulic_pressure_bar","coolant_pressure_bar","air_system_pressure_bar","coolant_temperature_c","hydraulic_oil_temperature_c","spindle_bearing_temperature_c","spindle_vibration_um","tool_vibration_um","spindle_speed_rpm","voltage_v","torque_nm","cutting_kn","downtime"] }, descending: { type: "boolean" } }),
   tool("aggregate_telemetry", "Agrupa sensores por dia, máquina ou linha. Retorna média e máxima e, por dia, series para ChartResult. Ideal para gráficos e comparação. Use metric=downtime para taxa de parada.", { ...filterProperties, group_by: { type: "string", enum: ["day", "machine", "line"] }, metric: { type: "string", enum: [...aggregateMetrics] } }),
   tool("inspect_telemetry_schema", "Lista os campos, unidades e filtros disponíveis para consultas.", {}),
   tool("get_alerts", `Todas as leituras em alerta: ${alertDescription} Use sempre para investigar alertas; inclui contagens por máquina da base completa.`, {}),
@@ -110,7 +110,7 @@ export async function executeAgentTool(name: string, args: unknown,context?:{ide
   }
   if(name==="get_alerts") {
     z.object({}).strict().parse(args)
-    const rows=await readQuery(`SELECT id,machine_id,assembly_line,date,coolant_temperature_c::float,spindle_bearing_temperature_c::float,spindle_vibration_um::float,tool_vibration_um::float,hydraulic_pressure_bar::float,downtime,downtime_label FROM telemetry WHERE ${criticalAlertSql} ORDER BY date DESC LIMIT 200`)
+    const rows=await readQuery(`SELECT id,record_key,version,machine_id,assembly_line,date,${sensorDefinitions.map(definition=>`${definition.column}::float`).join(",")},downtime,downtime_label,quality_issues FROM telemetry WHERE ${criticalAlertSql} ORDER BY date DESC, id DESC LIMIT 200`)
     const grouped=await readQuery(`SELECT machine_id,COUNT(*)::int AS leituras,MIN(date) AS inicio,MAX(date) AS fim,MAX(coolant_temperature_c)::float AS temperatura_maxima,MAX(spindle_vibration_um)::float AS vibracao_spindle_maxima,COUNT(*) FILTER (WHERE downtime IS TRUE)::int AS paradas FROM telemetry WHERE ${criticalAlertSql} GROUP BY machine_id ORDER BY COUNT(*) DESC`)
     return {rows:enrich(rows),summary:{leituras_em_alerta:grouped.reduce((sum,row)=>sum+Number(row.leituras),0),maquinas:grouped},description:`Triagem: ${alertDescription} Contagem por máquina sobre a base completa; tabela limitada a 200 leituras.`}
   }
@@ -123,7 +123,8 @@ export async function executeAgentTool(name: string, args: unknown,context?:{ide
   }
   if (name === "get_fleet_summary") {
     z.object({}).strict().parse(args)
-    const rows = await readQuery(`SELECT COUNT(*)::int AS leituras, COUNT(DISTINCT machine_id)::int AS maquinas, COUNT(DISTINCT assembly_line)::int AS linhas, MIN(date) AS inicio, MAX(date) AS fim, ROUND(AVG(coolant_temperature_c),1)::float AS temperatura_refrigerante_media_c, ROUND(AVG(spindle_bearing_temperature_c),1)::float AS temperatura_mancal_media_c, ROUND(AVG(spindle_vibration_um),3)::float AS vibracao_spindle_media_um, COUNT(*) FILTER (WHERE downtime IS TRUE)::int AS paradas, COUNT(*) FILTER (WHERE ${criticalAlertSql})::int AS leituras_em_alerta FROM telemetry`)
+    const sensorSummary = sensorDefinitions.map(definition=>`ROUND(AVG(${definition.column}),3)::float AS ${definition.column}_media, ROUND(MAX(${definition.column}),3)::float AS ${definition.column}_maxima, ROUND(MIN(${definition.column}),3)::float AS ${definition.column}_minima`).join(",")
+    const rows = await readQuery(`SELECT COUNT(*)::int AS leituras, COUNT(DISTINCT machine_id)::int AS maquinas, COUNT(DISTINCT assembly_line)::int AS linhas, MIN(date) AS inicio, MAX(date) AS fim, ${sensorSummary}, COUNT(*) FILTER (WHERE downtime IS TRUE)::int AS paradas, COUNT(*) FILTER (WHERE ${criticalAlertSql})::int AS leituras_em_alerta FROM telemetry`)
     return { summary: rows[0] }
   }
   if (name === "query_telemetry") {
