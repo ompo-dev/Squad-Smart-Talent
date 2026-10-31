@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador do Site Generativo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: o mesmo esqueleto do app do grupo (TelemetryOS) — menu lateral, cabeçalho com trilha, conteúdo em cartões brancos.
+   Visual claro de propósito, igual ao app; por isso um tema só, com todas as cores declaradas. */
+:root {
+  --bg: #fafafa; --card: #ffffff; --ink: #0a0a0a; --muted: #52525b; --line: #e5e7eb; --soft: #f4f4f5;
+  --dark: #18181b; --on-dark: #ffffff; --blue: #2563eb; --blue-soft: #dbeafe; --blue-ink: #1e40af;
+  --green: #166534; --green-bg: #f0fdf4; --green-line: #bbf7d0; --amber: #854d0e; --amber-bg: #fef9c3;
+  --orange: #9a3412; --orange-bg: #fff7ed; --orange-line: #fed7aa; --red: #b91c1c; --red-bg: #fef2f2; --red-line: #fecaca;
+  --l1: #93c5fd; --l2: #2563eb; --l3: #ea580c;
+  --f-body: Inter, "Segoe UI", Arial, sans-serif; --f-mono: "JetBrains Mono", Consolas, monospace;
+  color-scheme: light;
+}
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--f-body); font-size: 14px; line-height: 1.5; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+h1, h2, h3 { margin: 0; line-height: 1.2; text-wrap: balance; }
+p { margin: 0; }
+.app { display: flex; flex-wrap: wrap; min-height: 100%; }
+.side { flex: 1 1 240px; max-width: 260px; box-sizing: border-box; padding-block: 16px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: 12px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 18px; }
+@media (max-width: 760px) { .side { max-width: none; border-right: 0; border-bottom: 1px solid var(--line); padding-right: max(12px, env(safe-area-inset-right, 0px)); } }
+.brand { display: flex; gap: 10px; align-items: center; padding: 4px; }
+.logo { width: 32px; height: 32px; border-radius: 8px; background: var(--dark); display: flex; align-items: center; justify-content: center; }
+.navgrp { display: flex; flex-direction: column; gap: 2px; }
+.navgrp > span { font-size: 12px; color: var(--muted); padding: 4px 8px; }
+.nav { border: 0; background: none; text-align: left; padding: 8px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.nav:hover { background: var(--soft); }
+.nav[aria-current="page"] { background: #f0f0f1; font-weight: 600; }
+.nav.off { color: #a1a1aa; cursor: default; }
+.nav.off:hover { background: none; }
+.tag { font-size: 11px; font-weight: 600; border-radius: 99px; padding: 1px 8px; }
+.tag.new { color: var(--blue-ink); background: var(--blue-soft); }
+.viewer { margin-top: auto; border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: var(--card); }
+.viewer label { font-size: 12px; color: var(--muted); }
+.viewer select { border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; background: var(--card); min-height: 38px; }
+.main { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; }
+.topbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding-block: 12px; padding-left: 24px; padding-right: max(24px, env(safe-area-inset-right, 0px)); border-bottom: 1px solid var(--line); background: var(--card); }
+.crumb { display: flex; flex-direction: column; }
+.crumb small { font-size: 11px; letter-spacing: .18em; color: var(--muted); }
+.crumb b { font-weight: 600; }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge { font-size: 12px; border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; background: var(--card); color: #3f3f46; }
+.badge.live { color: var(--green); background: var(--green-bg); border-color: var(--green-line); }
+.content { padding-block: 24px 48px; padding-left: 24px; padding-right: max(24px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 20px; max-width: 1240px; width: 100%; box-sizing: border-box; }
+@media (max-width: 760px) { .content, .topbar { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); } }
+.title h1 { font-size: 26px; font-weight: 700; }
+.title p { color: var(--muted); margin-top: 4px; }
+.box { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.box-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
+.box-head h2 { font-size: 16px; font-weight: 600; }
+.box-head p { color: var(--muted); font-size: 13px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 14px; }
+.kpi { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.kpi .l { color: var(--muted); font-size: 13px; }
+.kpi .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.25; overflow-wrap: anywhere; }
+.kpi .s { color: var(--muted); font-size: 12px; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; }
+@media (max-width: 520px) { .charts { grid-template-columns: 1fr; } }
+.chart svg { width: 100%; height: auto; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #3f3f46; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.hrow { display: grid; grid-template-columns: minmax(110px, 170px) 1fr 70px; gap: 10px; align-items: center; font-size: 13px; }
+.htrack { height: 12px; background: var(--soft); border-radius: 4px; }
+.htrack div { height: 12px; border-radius: 4px; }
+.hrow .n { text-align: right; font-variant-numeric: tabular-nums; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.tile { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tile-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.tile-top b { font-size: 13.5px; font-weight: 600; }
+.tile .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tile .s { font-size: 12.5px; color: var(--muted); }
+.pill { font-size: 11px; font-weight: 600; border-radius: 99px; padding: 2px 8px; white-space: nowrap; }
+.pill.ok { color: var(--green); background: var(--green-bg); }
+.pill.prem { color: var(--amber); background: var(--amber-bg); }
+.pill.novo { color: var(--red); background: var(--red-bg); }
+details { border-top: 1px solid var(--soft); padding-top: 6px; }
+summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--blue); }
+.how { display: grid; gap: 6px; margin-top: 8px; font-size: 13px; }
+.how div { display: grid; gap: 1px; }
+.how span { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.how code { font-family: var(--f-mono); font-size: 12px; background: var(--soft); border-radius: 6px; padding: 5px 7px; display: block; white-space: normal; }
+.empty { border: 1px dashed #d4d4d8; border-radius: 12px; padding: 28px; text-align: center; color: var(--muted); background: var(--card); }
+.two { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 980px) { .two { grid-template-columns: 1fr; } }
+.tree, .tree ul { list-style: none; margin: 0; padding: 0; }
+.tree ul { margin-left: 16px; padding-left: 12px; border-left: 2px solid var(--line); }
+.tree li { margin: 6px 0; }
+.node { width: 100%; text-align: left; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 9px 12px; display: flex; flex-direction: column; gap: 1px; }
+.node[aria-current="true"] { border-color: var(--dark); box-shadow: 0 0 0 1px var(--dark); }
+.node b { font-weight: 600; }
+.node span { font-size: 12px; color: var(--muted); }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 7px 14px; font-weight: 500; min-height: 38px; }
+.btn.primary { background: var(--dark); border-color: var(--dark); color: var(--on-dark); font-weight: 600; }
+.btn.danger { color: var(--red); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 13.5px; margin: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+form { display: flex; flex-direction: column; gap: 12px; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 600; }
+label.f input, label.f select { font-weight: 400; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--card); min-height: 38px; }
+fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px 10px; margin: 0; }
+legend { font-weight: 600; padding: 0 4px; }
+.chk { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; padding: 3px 0; }
+.chk input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--dark); }
+.chk.all { font-weight: 600; border-bottom: 1px dashed var(--line); padding-bottom: 6px; margin-bottom: 4px; }
+.hint { font-size: 12.5px; color: var(--muted); }
+.err { color: var(--red); font-size: 13px; font-weight: 600; }
+.warn { background: var(--orange-bg); border: 1px solid var(--orange-line); color: var(--orange); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.alerts { background: var(--red-bg); border: 1px solid var(--red-line); border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; color: #7f1d1d; font-size: 13px; }
+.alerts b.t { color: #991b1b; font-size: 14px; }
+.chat { display: flex; flex-direction: column; gap: 12px; min-height: 260px; }
+.msg { max-width: 85%; border-radius: 12px; padding: 10px 14px; line-height: 1.5; }
+.msg.user { align-self: flex-end; background: var(--dark); color: var(--on-dark); border-bottom-right-radius: 2px; }
+.msg.bot { align-self: flex-start; background: var(--soft); border-bottom-left-radius: 2px; display: flex; flex-direction: column; gap: 6px; }
+.msg.bot.denied { background: var(--orange-bg); border: 1px solid var(--orange-line); }
+.src { display: flex; flex-wrap: wrap; gap: 6px; }
+.src span { font-size: 11.5px; border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 1px 8px; color: #3f3f46; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 6px 12px; font-size: 13px; min-height: 34px; }
+.chip:hover { border-color: var(--dark); }
+.ask { display: flex; gap: 8px; }
+.ask input { flex: 1 1 auto; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; min-height: 40px; background: var(--card); }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.toast { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--dark); color: var(--on-dark); border-radius: 10px; padding: 10px 14px; max-width: min(440px, calc(100vw - 32px)); font-size: 13.5px; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+
+/* Cargos e membros: mesma estrutura das configurações de cargos do Discord, no visual claro do site */
+.dc { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-height: 520px; }
+@media (max-width: 860px) { .dc { grid-template-columns: 1fr; } }
+.dc-side { background: #fafafa; border-right: 1px solid var(--line); padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+@media (max-width: 860px) { .dc-side { border-right: 0; border-bottom: 1px solid var(--line); } }
+.dc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 6px 8px; font-weight: 600; }
+.dc-role { border: 1px solid transparent; background: none; color: var(--ink); display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; text-align: left; width: 100%; min-height: 40px; }
+.dc-role:hover { background: var(--soft); }
+.dc-role[aria-current="true"] { background: var(--card); border-color: var(--line); box-shadow: 0 1px 2px rgba(0,0,0,.06); font-weight: 600; }
+.dc-role > i { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.dc-role .nm { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-role .ct { display: flex; align-items: center; gap: 3px; color: var(--muted); font-size: 12px; font-weight: 400; }
+.dc-role .lk, .dc-perm .lk { color: #a1a1aa; display: flex; }
+.dc-main { display: flex; flex-direction: column; min-width: 0; }
+.dc-title { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 18px 20px 10px; }
+.dc-title h2 { font-size: 18px; font-weight: 700; }
+.dc-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.dc-btn { border: 1px solid var(--dark); background: var(--dark); color: #fff; border-radius: 8px; padding: 7px 14px; font-weight: 600; font-size: 13px; min-height: 36px; }
+.dc-btn.ghost { background: var(--card); color: var(--ink); border-color: var(--line); font-weight: 500; }
+.dc-btn.green { background: #16a34a; border-color: #16a34a; }
+.dc-btn.danger { background: var(--card); color: var(--red); border-color: var(--red-line); }
+.dc-btn[disabled] { opacity: .4; cursor: not-allowed; }
+.dc-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+.dc-tab { border: 0; background: none; color: var(--muted); padding: 10px 12px; border-bottom: 2px solid transparent; font-weight: 500; }
+.dc-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
+.dc-body { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 10px; }
+.dc-grp { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-top: 10px; }
+.dc-perm { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.dc-perm.off { background: #fafafa; }
+.dc-perm.off b { color: var(--muted); }
+.dc-perm-top { display: flex; align-items: center; gap: 10px; }
+.dc-perm-top b { flex: 1 1 auto; font-weight: 600; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.dc-perm p, .dc-hint { color: var(--muted); font-size: 13px; margin: 0; }
+.dc-perm details { border-top: 0; padding-top: 0; }
+.dc .how code { background: var(--soft); color: var(--ink); }
+.hash { color: var(--muted); font-size: 16px; }
+.sw { width: 42px; height: 24px; border-radius: 99px; border: 0; background: #d4d4d8; position: relative; flex: none; padding: 0; }
+.sw span { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: left .15s; }
+.sw[aria-checked="true"] { background: #16a34a; }
+.sw[aria-checked="true"] span { left: 21px; }
+.sw[disabled] { opacity: .4; cursor: not-allowed; }
+.dc-search, .dc-f input, .dc-add select, .dc-add input { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-height: 38px; }
+.dc-f { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+.dc-f input[disabled] { background: #fafafa; color: var(--muted); }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 36px; height: 36px; border-radius: 8px; border: 2px solid transparent; }
+.swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
+.dc-lock { display: flex; gap: 8px; align-items: center; background: var(--soft); color: var(--muted); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin: 0; }
+.dc-save { position: sticky; bottom: 16px; margin: 0 16px 16px; background: var(--dark); color: #fff; border-radius: 10px; padding: 10px 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; box-shadow: 0 8px 20px rgba(0,0,0,.18); }
+.dc-save div { display: flex; gap: 8px; }
+.dc-save .dc-btn.ghost { background: transparent; color: #fff; border-color: #52525b; }
+.dc-member { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.dc-member span:nth-child(2) { flex: 1 1 auto; font-weight: 500; }
+.av { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #111; font-weight: 700; font-size: 13px; flex: none; }
+.av.big { width: 52px; height: 52px; font-size: 20px; }
+.dc-x { border: 0; background: none; color: var(--muted); font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 6px; }
+.dc-x:hover { background: var(--soft); color: var(--ink); }
+.dc-add { display: flex; flex-wrap: wrap; gap: 8px; }
+.dc-add select, .dc-add input { flex: 1 1 140px; min-width: 0; }
+.dc-profile { display: flex; gap: 14px; align-items: center; padding: 20px 20px 4px; }
+.dc-profile h2 { font-size: 20px; }
+.dc-line { margin: 0; font-size: 13.5px; }
+.rchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.rchip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 3px 10px; font-size: 12.5px; }
+.rchip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.guia { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.guia div { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; gap: 10px; align-items: flex-start; font-size: 13px; }
+.guia b.n { width: 24px; height: 24px; border-radius: 50%; background: var(--dark); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex: none; font-size: 12px; }
+.alerts details.al { border: 0; padding: 0; }
+.alerts details.al summary { color: #7f1d1d; font-weight: 500; }
+.alerts details.al p { color: #7f1d1d; opacity: .85; margin: 4px 0 6px 16px; font-size: 12.5px; }
+.kpi details { margin-top: 4px; }
+
+/* Barra de teste do protótipo (não existe no site real) e partes geradas do menu */
+.testbar { background: #fffbeb; border-bottom: 1px solid #fde68a; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.tb-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: #92400e; }
+.tb-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 400px; align-items: center; }
+.tb-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e7d9b5; background: #ffffff; border-radius: 99px; padding: 5px 12px; font-size: 13px; min-height: 32px; }
+.tb-chip i { width: 10px; height: 10px; border-radius: 50%; }
+.tb-chip[aria-pressed="true"] { background: var(--dark); color: #fff; border-color: var(--dark); }
+.tb-sep { font-size: 12px; color: #92400e; margin-left: 6px; }
+.tb-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.tb-btn { border: 1px solid #e7d9b5; background: #ffffff; border-radius: 8px; padding: 5px 10px; font-size: 12.5px; min-height: 32px; }
+.tb-btn[aria-pressed="true"] { background: #fde68a; }
+.usercard { margin-top: auto; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding: 12px 6px 0; }
+.usercard b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usercard span:not(.av) { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile.pk { text-align: left; background: var(--card); cursor: pointer; }
+.tile.pk:hover { border-color: var(--dark); }
+.tblwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+.tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; min-width: 560px; }
+.tbl th { text-align: left; font-weight: 500; background: var(--soft); padding: 10px 14px; white-space: nowrap; }
+.tbl td { padding: 11px 14px; border-top: 1px solid var(--line); }
+
+.testbar { flex-direction: column; align-items: stretch; }
+.tb-chips { flex-direction: column; align-items: stretch; flex: none; }
+.tb-setor { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tb-seta { color: #b45309; font-size: 13px; }
+.tb-sel { border: 1px solid #e7d9b5; background: #ffffff; border-radius: 8px; padding: 5px 8px; min-height: 32px; font-size: 13px; }
+.dc-role .ramo { color: #a1a1aa; font-size: 13px; margin-right: -4px; }
+.tasks { display: flex; flex-direction: column; gap: 10px; }
+.task { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.task-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.task-top b { font-weight: 600; }
+.task-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.cadeia { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.5px; }
+.task-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.task-acts select { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; min-height: 36px; background: var(--card); max-width: 100%; }
+.task-mini { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: end; }
+.form-row label.f { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 600; }
+.form-row input, .form-row select { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-height: 38px; background: var(--card); font-weight: 400; }
+</style>
+
+<div class="testbar" role="region" aria-label="Modo de teste do protótipo">
+  <span class="tb-label">MODO DE TESTE · clique num cargo para ver o site como ele vê. Cada linha é um setor, do topo até o último nível.</span>
+  <div class="tb-chips" id="tb-chips"></div>
+  <div class="tb-tools"><button type="button" class="tb-btn" data-view="cardapio">Cardápio</button><button type="button" class="tb-btn" data-view="como">Como funciona</button><button type="button" class="tb-btn" id="reset">Voltar ao exemplo</button></div>
+</div>
+<div class="app">
+  <nav class="side" id="side" aria-label="Menu principal"></nav>
+  <main class="main">
+    <header class="topbar">
+      <div class="crumb"><small>TELEMETRYOS</small><b id="crumb">Visão geral</b></div>
+      <div class="badges"><span class="badge live">Dados reais do dataset</span><span class="badge">Dados de 24/11/2021 a 03/07/2022</span></div>
+    </header>
+    <div class="content" id="view" aria-live="polite"></div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+<script>
+const MESES = 7.293, CF = 1.08 * 189.78;
+const D = {
+  all: {registros:2500,falhas:1265,taxa:.506,dias_falha:354,horas_teto:1366.2,horas_piso:382.3,custo_teto:259277,custo_piso:72557,disp_teto:.8632,disp_piso:.9617,horas_possiveis:9984,mtbf:7.9,taxa_abr:.531,taxa_mai:.431,reg_abr:527,reg_mai:116,reincid:202,reincid_max:12,conf:1186,duv:68,erro:11,cut:[3.06,2.5],tq:[22.76,27.78],rpm:[21319,19200],ct_alta:40,v_std:45.4,hp_fora:465},
+  L1: {registros:874,falhas:454,taxa:.5195,dias_falha:126,horas_teto:490.3,horas_piso:136.1,custo_teto:93053,custo_piso:25825,disp_teto:.8551,disp_piso:.9598,horas_possiveis:3384,mtbf:7.5,taxa_abr:.567,taxa_mai:.39,reg_abr:194,reg_mai:41,reincid:70,reincid_max:12,conf:428,duv:22,erro:4,cut:[3.04,2.48],tq:[22.59,27.5],rpm:[21446,19180],ct_alta:15,v_std:45.9,hp_fora:157},
+  L2: {registros:808,falhas:396,taxa:.4901,dias_falha:114,horas_teto:427.7,horas_piso:123.1,custo_teto:81165,custo_piso:23366,disp_teto:.8718,disp_piso:.9631,horas_possiveis:3336,mtbf:8.4,taxa_abr:.497,taxa_mai:.465,reg_abr:175,reg_mai:43,reincid:66,reincid_max:12,conf:371,duv:23,erro:2,cut:[3.08,2.52],tq:[22.62,27.71],rpm:[21362,19239],ct_alta:11,v_std:45.3,hp_fora:153},
+  L3: {registros:818,falhas:415,taxa:.5073,dias_falha:114,horas_teto:448.2,horas_piso:123.1,custo_teto:85059,custo_piso:23366,disp_teto:.8627,disp_piso:.9623,horas_possiveis:3264,mtbf:7.9,taxa_abr:.525,taxa_mai:.438,reg_abr:158,reg_mai:32,reincid:66,reincid_max:10,conf:387,duv:23,erro:5,cut:[3.05,2.5],tq:[23.09,28.13],rpm:[21140,19181],ct_alta:14,v_std:44.9,hp_fora:155}
+};
+const M = {
+  L1: {nome:'Makino-L1', chance:.419, rpd:874/141, risco:532.82, saude:58, prox:9.2, hp:13, corte:11, torque:13, alto:8, areas:[244,199,11,0], semdados:0, ultima:'03/07/2022'},
+  L2: {nome:'Makino-L2', chance:.521, rpd:808/139, risco:620.7, saude:48, prox:7.9, hp:18, corte:15, torque:12, alto:13, areas:[216,171,9,0], semdados:14, ultima:'19/06/2022'},
+  L3: {nome:'Makino-L3', chance:.533, rpd:818/136, risco:657.6, saude:47, prox:7.5, hp:22, corte:12, torque:11, alto:13, areas:[239,164,11,1], semdados:26, ultima:'07/06/2022'}
+};
+const ORDEM = ['L3', 'L2', 'L1'];
+const ESCOPO = {all:'Todas as máquinas', L1:'Só a Makino-L1', L2:'Só a Makino-L2', L3:'Só a Makino-L3', 'L1+L2':'Makino-L1 e L2', 'L1+L3':'Makino-L1 e L3', 'L2+L3':'Makino-L2 e L3'};
+
+const fmt = (v, c = 0) => v.toLocaleString('pt-BR', {minimumFractionDigits: c, maximumFractionDigits: c});
+const brl = v => 'R$ ' + fmt(v);
+const pct = (v, c = 1) => fmt(v * 100, c) + '%';
+const faixa = s => (s.saude < 50 ? 'crítica' : s.saude < 70 ? 'atenção' : 'boa');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const maqs = e => (e === 'all' ? ORDEM : ORDEM.filter(k => e.split('+').includes(k)));
+// Chave do escopo a partir de uma lista de máquinas: 'all', 'L3' ou 'L1+L3'
+const chaveEscopo = lista => { const l = ['L1', 'L2', 'L3'].filter(k => lista.includes(k)); return l.length === 3 ? 'all' : l.join('+'); };
+// Escopo com 2 máquinas: soma as contagens das duas e recalcula taxas e médias
+[['L1', 'L2'], ['L1', 'L3'], ['L2', 'L3']].forEach(par => {
+  const [a, b] = par.map(k => D[k]), soma = c => a[c] + b[c], media = c => [0, 1].map(i => (a[c][i] * a.registros + b[c][i] * b.registros) / (a.registros + b.registros));
+  const d = {registros: soma('registros'), falhas: soma('falhas'), dias_falha: soma('dias_falha'), horas_teto: soma('horas_teto'), horas_piso: soma('horas_piso'),
+    custo_teto: soma('custo_teto'), custo_piso: soma('custo_piso'), horas_possiveis: soma('horas_possiveis'), reg_abr: soma('reg_abr'), reg_mai: soma('reg_mai'),
+    reincid: soma('reincid'), reincid_max: Math.max(a.reincid_max, b.reincid_max), conf: soma('conf'), duv: soma('duv'), erro: soma('erro'),
+    cut: media('cut'), tq: media('tq'), rpm: media('rpm'), ct_alta: soma('ct_alta'), v_std: (a.v_std + b.v_std) / 2, hp_fora: soma('hp_fora')};
+  d.taxa = d.falhas / d.registros; d.disp_teto = 1 - d.horas_teto / d.horas_possiveis; d.disp_piso = 1 - d.horas_piso / d.horas_possiveis; d.mtbf = d.horas_possiveis / d.falhas;
+  d.taxa_abr = (a.taxa_abr * a.reg_abr + b.taxa_abr * b.reg_abr) / d.reg_abr; d.taxa_mai = (a.taxa_mai * a.reg_mai + b.taxa_mai * b.reg_mai) / d.reg_mai;
+  D[par.join('+')] = d;
+});
+
+const PACOTES = [
+  {id:'fin', nome:'Financeiro'}, {id:'op', nome:'Operação'}, {id:'prev', nome:'Previsão'}, {id:'man', nome:'Manutenção'},
+  {id:'proc', nome:'Processo e ferramenta'}, {id:'sup', nome:'Suprimentos'}, {id:'seg', nome:'Segurança'}, {id:'ges', nome:'Gestão de ações'}
+];
+
+// Cada informação: de onde vem, a conta, o porquê e o valor para o escopo da pessoa (todas as máquinas ou uma)
+const ITENS = [
+  {id:'fin_custo', pac:'fin', nome:'Custo das paradas por mês', st:'prem',
+   origem:'Coluna "falhou / não falhou", data e máquina. Premissas: 1,08 h por parada (Siemens 2024) e R$ 189,78 por hora parada (custo de reposição, pesquisa GRV 2024 com 480 empresas).',
+   conta:'Teto = registros de falha × 1,08 h × R$ 189,78 ÷ meses. Piso = dias com falha × 1,08 h × R$ 189,78 ÷ meses.',
+   porque:'Mostra o tamanho do problema em reais. É faixa porque o dataset não diz se várias falhas no mesmo dia são uma parada só.',
+   val: e => { const d = D[e]; return {v:`${brl(d.custo_piso / MESES)} a ${brl(d.custo_teto / MESES)}`, sub:'por mês, período de 7,3 meses',
+     n:`Teto: ${fmt(d.falhas)} × 1,08 h × R$ 189,78 = ${brl(d.custo_teto)} ÷ 7,3 = ${brl(d.custo_teto / MESES)}. Piso: ${fmt(d.dias_falha)} dias com falha × 1,08 h × R$ 189,78 = ${brl(d.custo_piso)} ÷ 7,3 = ${brl(d.custo_piso / MESES)}.`}; }},
+  {id:'fin_parada', pac:'fin', nome:'Custo por parada', st:'prem',
+   origem:'Só as premissas: 1,08 h por parada (Siemens 2024) e R$ 189,78 por hora (GRV 2024).',
+   conta:'Duração média de uma parada × custo de uma hora parada.',
+   porque:'É a base de todas as contas em reais e o número mais fácil de comunicar.',
+   val: () => ({v:'R$ 204,96', sub:'cada vez que uma máquina para', n:'1,08 h × R$ 189,78 = R$ 204,96'})},
+  {id:'fin_risco', pac:'fin', nome:'Risco em R$ por dia', st:'prem',
+   origem:'Chance de falha prevista pelo modelo (12 sensores), número de registros por dia de cada máquina e o custo por parada.',
+   conta:'Chance de falha recente × registros por dia × R$ 204,96.',
+   porque:'Transforma o risco em dinheiro e diz onde agir primeiro.',
+   val: e => { const ms = maqs(e), t = ms.reduce((a, k) => a + M[k].risco, 0), k = ms[0];
+     return {v:brl(t) + '/dia', sub: ms.length > 1 ? ms.map(k => `${M[k].nome} ${brl(M[k].risco)}`).join(' · ') : M[k].nome,
+       n:`${M[k].nome}: ${pct(M[k].chance)} × ${fmt(M[k].rpd, 1)} registros por dia × R$ 204,96 = ${brl(M[k].risco)} por dia.`}; }},
+  {id:'fin_economia', pac:'fin', nome:'Economia com manutenção preditiva', st:'prem',
+   origem:'Custo das paradas e a premissa de 50% menos paradas com manutenção preditiva (Siemens 2024).',
+   conta:'Custo das paradas por mês × 50%.',
+   porque:'Mostra quanto dá para investir em prevenção e ainda ganhar.',
+   val: e => { const d = D[e]; return {v:`${brl(d.custo_piso / MESES / 2)} a ${brl(d.custo_teto / MESES / 2)}`, sub:'por mês',
+     n:`${brl(d.custo_piso / MESES)} × 50% = ${brl(d.custo_piso / MESES / 2)} · ${brl(d.custo_teto / MESES)} × 50% = ${brl(d.custo_teto / MESES / 2)}`}; }},
+
+  {id:'op_falhas', pac:'op', nome:'Falhas e taxa de falha', st:'ok',
+   origem:'Coluna "falhou / não falhou" de cada registro.',
+   conta:'Contagem dos registros marcados como falha ÷ total de registros.',
+   porque:'É a medida mais direta de quanto as máquinas param.',
+   val: e => { const d = D[e]; return {v:`${fmt(d.falhas)} falhas`, sub:`${pct(d.taxa)} dos ${fmt(d.registros)} registros`, n:`${fmt(d.falhas)} ÷ ${fmt(d.registros)} = ${pct(d.taxa)}`}; }},
+  {id:'op_qualidade', pac:'op', nome:'Falha real × sujeira', st:'ok',
+   origem:'Coluna de falha conferida com os 12 sensores e com o modelo de risco.',
+   conta:'Confirmada: marcada como falha e com pelo menos um sensor fora do normal (1% a 99% dos registros sem falha) ou o modelo reconhece. Duvidosa: marcada, mas nenhum sinal. Erro de dado: valor impossível ou 2 ou mais sensores vazios.',
+   porque:'O dataset está sujo. Separar as falhas evita decidir em cima de anotação errada.',
+   val: e => { const d = D[e]; return {v:`${fmt(d.conf)} confirmadas`, sub:`${d.duv} duvidosas · ${d.erro} com erro de dado`, n:`${fmt(d.conf)} + ${d.duv} + ${d.erro} = ${fmt(d.conf + d.duv + d.erro)} de ${fmt(d.falhas)} falhas`}; }},
+  {id:'op_horas', pac:'op', nome:'Horas paradas', st:'prem',
+   origem:'Falhas e a premissa de 1,08 h por parada (Siemens 2024).',
+   conta:'Teto = registros de falha × 1,08 h. Piso = dias com falha × 1,08 h.',
+   porque:'É o tempo em que a linha deixou de produzir.',
+   val: e => { const d = D[e]; return {v:`${fmt(d.horas_piso)} a ${fmt(d.horas_teto)} h`, sub:'no período de 7,3 meses', n:`${fmt(d.dias_falha)} × 1,08 = ${fmt(d.horas_piso, 1)} h · ${fmt(d.falhas)} × 1,08 = ${fmt(d.horas_teto, 1)} h`}; }},
+  {id:'op_disp', pac:'op', nome:'Disponibilidade (1º pilar do OEE)', st:'prem',
+   origem:'Horas paradas e dias com registro de cada máquina. O dataset não tem turnos, então cada dia conta 24 h.',
+   conta:'1 − horas paradas ÷ horas possíveis. Horas possíveis = dias com registro × 24 h.',
+   porque:'É a parte do OEE que os dados permitem medir. Meta de classe mundial: 90% (Nakajima).',
+   val: e => { const d = D[e]; return {v:`${pct(d.disp_teto)} a ${pct(d.disp_piso)}`, sub:'meta: 90%', n:`1 − ${fmt(d.horas_teto, 1)} ÷ ${fmt(d.horas_possiveis)} = ${pct(d.disp_teto)} · 1 − ${fmt(d.horas_piso, 1)} ÷ ${fmt(d.horas_possiveis)} = ${pct(d.disp_piso)}`}; }},
+  {id:'op_tend', pac:'op', nome:'Tendência (abril → maio)', st:'ok',
+   origem:'Falhas e registros de cada mês. Usa os dois últimos meses com pelo menos 50 registros.',
+   conta:'Taxa de falha do mês contra a do mês anterior.',
+   porque:'Mostra se a situação está melhorando ou piorando.',
+   val: e => { const d = D[e]; return {v:`${pct(d.taxa_abr)} → ${pct(d.taxa_mai)}`, sub: d.taxa_mai < d.taxa_abr ? 'melhorou' : 'piorou', n:`Abril: ${d.reg_abr} registros · maio: ${d.reg_mai} registros`}; }},
+  {id:'op_cap', pac:'op', nome:'Horas disponíveis para produzir', st:'prem',
+   origem:'Horas possíveis e horas paradas.',
+   conta:'Horas possíveis − horas paradas.',
+   porque:'Ajuda o planejamento a saber quanto dá para produzir.',
+   val: e => { const d = D[e]; return {v:`${fmt(d.horas_possiveis - d.horas_teto)} a ${fmt(d.horas_possiveis - d.horas_piso)} h`, sub:`de ${fmt(d.horas_possiveis)} h possíveis`, n:`${fmt(d.horas_possiveis)} − ${fmt(d.horas_teto, 1)} · ${fmt(d.horas_possiveis)} − ${fmt(d.horas_piso, 1)}`}; }},
+  {id:'op_oee', pac:'op', nome:'OEE completo', st:'novo',
+   origem:'Precisa de peças produzidas, peças planejadas e peças boas, que o dataset não tem.',
+   conta:'Disponibilidade × desempenho × qualidade.',
+   porque:'É o indicador do tema. Classe mundial: 85%.',
+   val: () => ({v:'Não medido', sub:'falta o contador de peças e a inspeção de qualidade', n:'Hoje só a disponibilidade é medida.'})},
+
+  {id:'prev_chance', pac:'prev', nome:'Chance de falha hoje', st:'ok',
+   origem:'Os 12 sensores. Um modelo (regressão logística) aprende com o histórico quais leituras aparecem antes das falhas.',
+   conta:'Média da chance prevista nos 30 registros mais recentes da máquina.',
+   porque:'Responde à pergunta do professor: qual máquina vai parar?',
+   val: e => { const ms = maqs(e); return {v:pct(M[ms[0]].chance), sub: ms.length > 1 ? ms.map(k => `${M[k].nome} ${pct(M[k].chance)}`).join(' · ') : M[ms[0]].nome, n:'O modelo acerta 89,9% em dados que não viu; chutar sempre a mesma resposta acerta 51,5%.'}; }},
+  {id:'prev_saude', pac:'prev', nome:'Saúde da máquina (0 a 100)', st:'ok',
+   origem:'Chance de falha recente.',
+   conta:'100 − chance de falha. Abaixo de 50: crítica; de 50 a 70: atenção; acima de 70: boa.',
+   porque:'Uma nota fácil de ler, sem precisar entender o modelo.',
+   val: e => { const ms = maqs(e); return {v: ms.length > 1 ? ms.map(k => M[k].saude).join(' · ') : `${M[ms[0]].saude}/100`, sub: ms.map(k => `${M[k].nome}: ${faixa(M[k])}`).join(' · '), n: ms.map(k => `100 − ${fmt(M[k].chance * 100, 1)} = ${M[k].saude}`).join(' · ')}; }},
+  {id:'prev_proxima', pac:'prev', nome:'Próxima falha estimada', st:'ok',
+   origem:'Chance de falha recente e registros por dia de cada máquina.',
+   conta:'Falhas esperadas por dia = chance × registros por dia. Próxima falha = 24 h ÷ falhas esperadas por dia.',
+   porque:'Diz quando agir. É uma média, não um horário exato.',
+   val: e => { const ms = maqs(e), k = ms[0], fd = M[k].chance * M[k].rpd;
+     return {v:`~${fmt(M[k].prox, 1)} h`, sub: ms.length > 1 ? ms.map(k => `${M[k].nome} ~${fmt(M[k].prox, 1)} h`).join(' · ') : M[k].nome,
+       n:`${M[k].nome}: ${pct(M[k].chance)} × ${fmt(M[k].rpd, 1)} = ${fmt(fd, 2)} falhas por dia · 24 ÷ ${fmt(fd, 2)} = ${fmt(24 / fd, 1)} h`}; }},
+  {id:'prev_ranking', pac:'prev', nome:'Ranking de prioridade', st:'prem',
+   origem:'Risco em R$ por dia de cada máquina.',
+   conta:'Ordena as máquinas do maior para o menor risco em R$.',
+   porque:'Diz o que atacar primeiro.',
+   val: e => { const ms = maqs(e); return {v: ms.map(k => `${ORDEM.indexOf(k) + 1}º ${k}`).join(' · '), sub: ms.length > 1 ? 'na ordem do maior risco em R$' : `${M[ms[0]].nome}, entre as 3 máquinas`, n:'R$ 658 (L3) > R$ 621 (L2) > R$ 533 (L1) por dia'}; }},
+  {id:'prev_modelo', pac:'prev', nome:'Confiabilidade do modelo', st:'ok',
+   origem:'Teste do modelo em dados que ele não viu no treino.',
+   conta:'Aprende com os 70% de registros mais antigos e é testado nos 30% mais recentes. Depois, a cada semana nova, é testado antes de reaprender.',
+   porque:'Se o modelo não superar o chute, o painel avisa e o ranking não deve ser usado.',
+   val: () => ({v:'89,9%', sub:'de acerto em dados novos · chute: 51,5%', n:'Teste semana a semana: 86,6% contra 58,9% do chute'})},
+
+  {id:'man_alertas', pac:'man', nome:'Alertas de sensor', st:'ok',
+   origem:'Últimos 30 registros de cada máquina.',
+   conta:'Limite = meio entre a média do sensor nas falhas e a média normal. Pressão hidráulica abaixo de 101,7 bar · força de corte acima de 2,8 kN · torque abaixo de 25,3 Nm.',
+   porque:'Avisa antes de quebrar.',
+   val: e => { const ms = maqs(e), s = f => ms.reduce((a, k) => a + M[k][f], 0), n = ms.length * 30;
+     return {v:`${s('hp')} de ${n}`, sub:`registros com pressão hidráulica baixa · corte alto: ${s('corte')} · torque baixo: ${s('torque')}`, n:'Hidráulica: (84,8 + 118,6) ÷ 2 = 101,7 bar'}; }},
+  {id:'man_areas', pac:'man', nome:'Falhas por área', st:'prem',
+   origem:'Pesos do modelo e a ligação de cada sensor a uma área (premissa do grupo). A área real viria das ordens de manutenção do SAP.',
+   conta:'Em cada falha, o sensor que mais puxou a chance de falha define a área.',
+   porque:'Manda o problema para a equipe certa.',
+   val: e => { const a = maqs(e).reduce((t, k) => t.map((v, i) => v + M[k].areas[i]), [0, 0, 0, 0]), tot = a.reduce((x, y) => x + y, 0);
+     return {v:`Mecânica ${pct(a[0] / tot, 0)}`, sub:`operacional ${pct(a[1] / tot, 0)} · automação ${pct(a[2] / tot, 1)} · elétrica ${pct(a[3] / tot, 1)}`, n:`${a[0]} + ${a[1]} + ${a[2]} + ${a[3]} = ${tot} falhas`}; }},
+  {id:'man_mtbf', pac:'man', nome:'Tempo médio entre falhas (MTBF)', st:'prem',
+   origem:'Horas possíveis e número de falhas.',
+   conta:'Horas possíveis ÷ falhas.',
+   porque:'Mede a confiabilidade da máquina. Quanto maior, melhor.',
+   val: e => { const d = D[e]; return {v:`${fmt(d.mtbf, 1)} h`, sub:'contando cada registro como uma falha', n:`${fmt(d.horas_possiveis)} h ÷ ${fmt(d.falhas)} = ${fmt(d.horas_possiveis / d.falhas, 1)} h`}; }},
+  {id:'man_reincid', pac:'man', nome:'Reincidência no mesmo dia', st:'ok',
+   origem:'Falhas por máquina por dia.',
+   conta:'Dias em que a mesma máquina teve 3 ou mais falhas.',
+   porque:'Pode indicar conserto que não resolveu. Sem a hora, também pode ser a mesma parada anotada várias vezes.',
+   val: e => { const d = D[e]; return {v:`${d.reincid} dias`, sub:`com 3 ou mais falhas · pior dia: ${d.reincid_max}`, n:`${d.reincid} de ${d.dias_falha} dias com falha`}; }},
+  {id:'man_semdados', pac:'man', nome:'Máquina sem enviar dados', st:'ok',
+   origem:'Data da última leitura de cada máquina.',
+   conta:'Dias entre a última leitura da máquina e a leitura mais recente da frota. Alerta acima de 7 dias.',
+   porque:'Sensor desligado ou conexão caída: sem dado, o painel fica cego.',
+   val: e => { const ms = maqs(e), pior = ms.reduce((a, k) => (M[k].semdados > M[a].semdados ? k : a), ms[0]);
+     return {v: M[pior].semdados ? `${M[pior].semdados} dias` : 'Em dia', sub: ms.map(k => `${M[k].nome}: ${M[k].semdados ? M[k].semdados + ' dias sem dados' : 'em dia'}`).join(' · '), n:`Última leitura de ${M[pior].nome}: ${M[pior].ultima} · frota: 03/07/2022`}; }},
+
+  {id:'proc_ferr', pac:'proc', nome:'Desgaste da ferramenta', st:'prem',
+   origem:'Força de corte e torque, comparando registros com e sem falha.',
+   conta:'Média nas falhas contra média no funcionamento normal.',
+   porque:'Força de corte subindo e torque caindo indicam ferramenta gasta: hora de trocar ou afiar.',
+   val: e => { const d = D[e]; return {v:`${fmt(d.cut[1], 1)} → ${fmt(d.cut[0], 1)} kN`, sub:`força de corte nas falhas · torque ${fmt(d.tq[1], 1)} → ${fmt(d.tq[0], 1)} Nm`, n:'Normal → nas falhas'}; }},
+  {id:'proc_rpm', pac:'proc', nome:'Rotação do fuso', st:'ok',
+   origem:'Sensor de rotação, comparando registros com e sem falha.',
+   conta:'Média nas falhas contra média no funcionamento normal.',
+   porque:'Rotação acima do padrão pode indicar programa CNC mal ajustado.',
+   val: e => { const d = D[e]; return {v:`${fmt(d.rpm[1] / 1000, 1)} → ${fmt(d.rpm[0] / 1000, 1)} mil RPM`, sub:'normal → nas falhas', n:`${fmt(d.rpm[1])} → ${fmt(d.rpm[0])} RPM`}; }},
+
+  {id:'sup_pecas', pac:'sup', nome:'Peças com mais chance de serem necessárias', st:'prem',
+   origem:'Alertas de sensor nos últimos 30 registros e a ligação de cada sensor a uma peça (premissa).',
+   conta:'Hidráulica baixa → filtro e bomba hidráulica. Força de corte alta → inserto da ferramenta.',
+   porque:'Comprar antes de faltar evita máquina parada esperando peça.',
+   val: e => { const ms = maqs(e), s = f => ms.reduce((a, k) => a + M[k][f], 0), n = ms.length * 30;
+     return {v:'Filtro e bomba hidráulica', sub:`${s('hp')} de ${n} registros com alerta hidráulico · inserto: ${s('corte')} de ${n}`, n:'Quanto mais alertas, maior a chance de precisar da peça'}; }},
+  {id:'sup_estoque', pac:'sup', nome:'Estoque de peças críticas', st:'novo',
+   origem:'Precisa do sistema de estoque da fábrica.',
+   conta:'Peças em estoque contra peças prováveis.',
+   porque:'Mostra se a peça vai estar lá quando precisar.',
+   val: () => ({v:'Não medido', sub:'falta ligar ao estoque', n:'Dado novo'})},
+
+  {id:'seg_hidr', pac:'seg', nome:'Risco de vazamento hidráulico', st:'prem',
+   origem:'Sensor de pressão hidráulica.',
+   conta:'Registros com pressão fora da faixa normal (de 70,5 a 169,3 bar, 1% a 99% dos registros sem falha).',
+   porque:'Pressão anormal pode ser vazamento de óleo: risco de acidente e dano ambiental.',
+   val: e => { const d = D[e]; return {v:`${d.hp_fora} registros`, sub:'com pressão hidráulica fora da faixa normal', n:`${d.hp_fora} de ${fmt(d.registros)} registros`}; }},
+  {id:'seg_temp', pac:'seg', nome:'Temperatura do refrigerante alta', st:'ok',
+   origem:'Sensor de temperatura do refrigerante.',
+   conta:'Registros acima de 31,7 °C (99% dos registros sem falha ficam abaixo disso).',
+   porque:'Superaquecimento pode causar dano à máquina e risco ao operador.',
+   val: e => { const d = D[e]; return {v:`${d.ct_alta} registros`, sub:'acima de 31,7 °C', n:`${d.ct_alta} de ${fmt(d.registros)} registros`}; }},
+  {id:'seg_tensao', pac:'seg', nome:'Oscilação de tensão', st:'ok',
+   origem:'Sensor de tensão.',
+   conta:'Desvio padrão da tensão: quanto ela varia em torno da média.',
+   porque:'Tensão instável pode danificar motores e painéis elétricos.',
+   val: e => { const d = D[e]; return {v:`± ${fmt(d.v_std)} V`, sub:'variação típica em torno da média (349 V)', n:'Desvio padrão de todas as leituras de tensão'}; }},
+
+  {id:'ges_5w2h', pac:'ges', nome:'Plano de ação 5W2H', st:'ok',
+   origem:'Os 3 sensores que mais pesam no modelo, com a ação e o responsável ligados a cada um.',
+   conta:'O quê, por quê, onde, quando, quem, como e quanto, montados automaticamente.',
+   porque:'Transforma análise em ação.',
+   val: e => ({v:'3 ações', sub:`1. Revisar o sistema hidráulico (até 10/07) · 2. Trocar ou afiar a ferramenta (até 17/07) · 3. Conferir fixação e torque (até 24/07) · onde: começando pela ${M[maqs(e)[0]].nome}`, n:'Quanto: até R$ 5.925 por mês cada, o teto que se paga com a economia'})},
+  {id:'ges_status', pac:'ges', nome:'Ações no prazo', st:'ok',
+   origem:'Status de cada ação, marcado por quem executa.',
+   conta:'Feitas, no prazo e atrasadas, contra o prazo de cada uma.',
+   porque:'Cobra a entrega no prazo.',
+   val: () => ({v:'0 de 3 feitas', sub:'3 no prazo · 0 atrasadas', n:'Prazos: 10/07, 17/07 e 24/07/2022'})},
+  {id:'ges_trein', pac:'ges', nome:'Necessidade de treinamento', st:'prem',
+   origem:'Falhas da área operacional (ferramenta, força de corte, torque).',
+   conta:'Falhas operacionais ÷ total de falhas.',
+   porque:'Muitas falhas de operação indicam que os operadores podem precisar de treinamento.',
+   val: e => { const ms = maqs(e), op = ms.reduce((a, k) => a + M[k].areas[1], 0), t = ms.reduce((a, k) => a + M[k].areas.reduce((x, y) => x + y, 0), 0);
+     return {v:`${op} falhas operacionais`, sub:`${pct(op / t)} das falhas`, n:`${op} ÷ ${t} = ${pct(op / t)}`}; }}
+];
+const TODOS = ITENS.map(i => i.id);
+const PILL = {ok:'Dados atuais', prem:'Com premissa', novo:'Dado novo'};
+
+// ---------------------------------------------------------------- séries reais para os gráficos
+const COR = {L1:'#93c5fd', L2:'#2563eb', L3:'#ea580c'};
+const MES_LAB = ['dez', 'jan', 'fev', 'mar', 'abr', 'mai'];
+const FALHAS_MES = {L1:[8, 34, 90, 194, 110, 16], L2:[3, 23, 93, 167, 87, 20], L3:[2, 30, 113, 172, 83, 14]};
+const DISP_MES = {L1:[94.9, 93.0, 85.5, 71.8, 82.3, 96.7], L2:[97.3, 95.1, 85.1, 75.8, 86.9, 95.5], L3:[98.2, 93.9, 81.8, 75.0, 87.5, 96.3]};
+const CHANCE_SEM = {
+  L1:[.738, .487, .469, .565, .64, .523, .524, .521, .484, .496, .493, .541, .591, .512, .506, .527, .487, .385, .572, .504, .262],
+  L2:[.554, .646, .29, .31, .431, .607, .572, .576, .515, .461, .438, .461, .528, .533, .39, .403, .524, .488, .487, .553, .303],
+  L3:[.661, .553, .567, .415, .57, .635, .559, .563, .53, .496, .391, .458, .499, .558, .451, .544, .406, .581, .53, .656, .422]
+};
+const HP_SEM = {
+  L1:[83.2, 88.8, 105.7, 92.0, 98.6, 106.3, 101.6, 105.6, 106.3, 99.5, 96.7, 95.7, 99.1, 100.8, 93.0, 95.7, 104.2, 115.6, 106.1, 93.3, 126.1],
+  L2:[100.0, 92.2, 112.2, 113.2, 116.2, 97.8, 95.2, 98.7, 102.3, 107.5, 100.3, 103.4, 105.3, 107.0, 99.0, 106.6, 108.4, 109.8, 100.2, 97.0, 136.9],
+  L3:[90.9, 109.5, 90.5, 109.5, 98.8, 93.0, 96.5, 99.2, 101.3, 102.3, 102.1, 103.6, 104.0, 101.5, 100.0, 94.5, 112.1, 85.3, 87.0, 81.6, 99.5]
+};
+const PESOS = [['Pressão hidráulica', -1.38], ['Força de corte', .92], ['Torque', -.89], ['Rotação do fuso', .36], ['Temp. do refrigerante', .25], ['Pressão do refrigerante', .21]];
+const SEM_MESES = [[0, 'jan'], [4, 'fev'], [8, 'mar'], [13, 'abr'], [17, 'mai']];
+
+const legenda = e => `<div class="legend">${maqs(e).map(k => `<span><i style="background:${COR[k]}"></i>${M[k].nome}</span>`).join('')}</div>`;
+
+// Barras empilhadas por mês (uma cor por máquina)
+function svgEmpilhado(e, valores, fmtTopo) {
+  const ms = maqs(e), n = MES_LAB.length, tot = MES_LAB.map((_, i) => ms.reduce((a, k) => a + valores[k][i], 0));
+  const max = Math.max(...tot), slot = 540 / n, bw = slot * .5;
+  let g = '';
+  MES_LAB.forEach((lab, i) => {
+    let y = 200; const x = 50 + i * slot + (slot - bw) / 2;
+    [...ms].reverse().forEach(k => { const h = valores[k][i] / max * 165; y -= h; g += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${COR[k]}"></rect>`; });
+    g += `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 6).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="600" fill="#0a0a0a">${fmtTopo(tot[i])}</text>`;
+    g += `<text x="${(x + bw / 2).toFixed(1)}" y="218" text-anchor="middle" font-size="11" fill="#52525b">${lab}</text>`;
+  });
+  return `<svg viewBox="0 0 600 228" role="img" aria-label="Barras por mês"><line x1="40" y1="200" x2="595" y2="200" stroke="#d4d4d8"></line>${g}</svg>`;
+}
+// Barras agrupadas de disponibilidade (60% a 100%) com a meta de 90%
+function svgDisp(e) {
+  const ms = maqs(e), slot = 540 / MES_LAB.length, bw = Math.min(16, slot * .7 / ms.length), y = v => 200 - (Math.max(60, v) - 60) / 40 * 175;
+  let g = `<rect x="40" y="${y(90).toFixed(1)}" width="555" height="1.2" fill="#16a34a"></rect><text x="44" y="${(y(90) - 5).toFixed(1)}" text-anchor="start" font-size="11" fill="#166534">meta 90%</text>`;
+  MES_LAB.forEach((lab, i) => {
+    const x0 = 50 + i * slot + (slot - bw * ms.length - 3 * (ms.length - 1)) / 2;
+    ms.forEach((k, j) => { const v = DISP_MES[k][i], yy = y(v); g += `<rect x="${(x0 + j * (bw + 3)).toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${(200 - yy).toFixed(1)}" fill="${COR[k]}"><title>${M[k].nome} ${lab}: ${fmt(v, 1)}%</title></rect>`; });
+    g += `<text x="${(50 + i * slot + slot / 2).toFixed(1)}" y="218" text-anchor="middle" font-size="11" fill="#52525b">${lab}</text>`;
+  });
+  return `<svg viewBox="0 0 600 228" role="img" aria-label="Disponibilidade por mês"><line x1="40" y1="200" x2="595" y2="200" stroke="#d4d4d8"></line><text x="34" y="29" text-anchor="end" font-size="11" fill="#52525b">100%</text><text x="34" y="204" text-anchor="end" font-size="11" fill="#52525b">60%</text>${g}</svg>`;
+}
+// Linhas semanais (jan a mai/2022)
+function svgLinhas(e, serie, min, max, rotulo, limite) {
+  const x = i => 50 + i * 27.2, y = v => 200 - (Math.min(max, Math.max(min, v)) - min) / (max - min) * 175;
+  let g = '';
+  if (limite) g += `<rect x="40" y="${y(limite).toFixed(1)}" width="555" height="${(200 - y(limite)).toFixed(1)}" fill="#fff7ed"></rect><line x1="40" y1="${y(limite).toFixed(1)}" x2="595" y2="${y(limite).toFixed(1)}" stroke="#ea580c" stroke-dasharray="5 4"></line><text x="590" y="194" text-anchor="end" font-size="11" fill="#9a3412">zona de alerta (abaixo de ${fmt(limite, 1)} bar)</text>`;
+  maqs(e).forEach(k => { g += `<polyline points="${serie[k].map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ')}" fill="none" stroke="${COR[k]}" stroke-width="2.5" stroke-linejoin="round"></polyline>`; });
+  SEM_MESES.forEach(([i, m]) => { g += `<text x="${x(i).toFixed(1)}" y="218" text-anchor="middle" font-size="11" fill="#52525b">${m}</text>`; });
+  return `<svg viewBox="0 0 600 228" role="img" aria-label="Linhas semanais"><line x1="40" y1="25" x2="595" y2="25" stroke="#f4f4f5"></line><line x1="40" y1="200" x2="595" y2="200" stroke="#d4d4d8"></line><text x="34" y="29" text-anchor="end" font-size="11" fill="#52525b">${rotulo[1]}</text><text x="34" y="204" text-anchor="end" font-size="11" fill="#52525b">${rotulo[0]}</text>${g}</svg>`;
+}
+// Barras horizontais em HTML
+const hbar = (linhas, max) => `<div style="display:flex;flex-direction:column;gap:10px">${linhas.map(([rot, v, cor, txt]) => `<div class="hrow"><span>${rot}</span><div class="htrack"><div style="width:${Math.max(1.5, Math.abs(v) / max * 100).toFixed(1)}%;background:${cor}"></div></div><span class="n">${txt}</span></div>`).join('')}</div>`;
+const corSaude = s => (s < 50 ? '#dc2626' : s < 70 ? '#d97706' : '#16a34a');
+
+const GRAF = {
+  fin_custo: {t:'Custo das paradas por mês', s:'Teto: cada registro de falha conta como uma parada de R$ 204,96', g: e => svgEmpilhado(e, Object.fromEntries(ORDEM.map(k => [k, FALHAS_MES[k].map(n => n * CF)])), v => 'R$ ' + fmt(v / 1000, 1) + ' mil') + legenda(e)},
+  op_falhas: {t:'Falhas por mês', s:'O pico de março acompanha o maior número de registros; a taxa fica perto de 50%', g: e => svgEmpilhado(e, FALHAS_MES, v => fmt(v)) + legenda(e)},
+  op_disp: {t:'Disponibilidade por mês', s:'Teto de paradas · escala de 60% a 100%', g: e => svgDisp(e) + legenda(e)},
+  prev_chance: {t:'Chance de falha semana a semana', s:'Média da chance prevista pelo modelo em cada semana · de 0% a 100%', g: e => svgLinhas(e, CHANCE_SEM, 0, 1, ['0%', '100%']) + legenda(e)},
+  man_alertas: {t:'Pressão hidráulica semana a semana', s:'Média semanal · abaixo de 101,7 bar o alerta dispara', g: e => svgLinhas(e, HP_SEM, 70, 140, ['70', '140'], 101.7) + legenda(e)},
+  fin_risco: {t:'Risco em R$ por dia', s:'Chance de falha × registros por dia × R$ 204,96', g: e => hbar(maqs(e).map(k => [M[k].nome, M[k].risco, COR[k], brl(M[k].risco)]), 700)},
+  prev_saude: {t:'Saúde das máquinas', s:'100 − chance de falha · abaixo de 50 é crítica', g: e => hbar(maqs(e).map(k => [M[k].nome, M[k].saude, corSaude(M[k].saude), M[k].saude + '/100']), 100)},
+  man_areas: {t:'Falhas por área', s:'Área do sensor que mais pesou em cada falha (premissa)', g: e => { const a = maqs(e).reduce((t, k) => t.map((v, i) => v + M[k].areas[i]), [0, 0, 0, 0]); return hbar([['Mecânica', a[0], '#ea580c', fmt(a[0])], ['Operacional', a[1], '#2563eb', fmt(a[1])], ['Automação', a[2], '#93c5fd', fmt(a[2])], ['Elétrica', a[3], '#a1a1aa', fmt(a[3])]], a[0]); }},
+  prev_modelo: {t:'O que mais pesa na falha', s:'Peso de cada sensor no modelo · laranja: valor baixo puxa a falha; azul: valor alto puxa', g: () => hbar(PESOS.map(([r, v]) => [r, v, v < 0 ? '#ea580c' : '#2563eb', (v > 0 ? '+' : '') + fmt(v, 2)]), 1.38)}
+};
+const DESTAQUE = ['fin_custo', 'op_disp', 'prev_proxima', 'prev_saude', 'man_alertas', 'fin_risco', 'op_falhas', 'man_semdados', 'fin_economia', 'ges_status', 'fin_parada', 'prev_chance'];
+
+
+// ---------------------------------------------------------------- cargos em árvore (setores) e membros
+// Cada cargo fica embaixo de um cargo pai. Só pode ter o que o pai tem. Quem tem um cargo que "pode repassar"
+// cria e edita os cargos abaixo do seu, e delega tarefas para eles. O dono fica acima de todos.
+const CORES = ['#3498db', '#2ecc71', '#9b59b6', '#e91e63', '#f1c40f', '#e67e22', '#e74c3c', '#1abc9c', '#607d8b', '#95a5a6'];
+const TUDO = ['L1', 'L2', 'L3'];
+const EXEMPLO = () => ({
+  cargos: [
+    {id:'g1', pai:null, nome:'Gerência da planta', cor:'#3498db', itens:TODOS.filter(i => /^(op|prev|man|ges)_/.test(i)), maqs:TUDO, repassa:true},
+    {id:'g2', pai:'g1', nome:'Supervisão de manutenção', cor:'#9b59b6', itens:TODOS.filter(i => /^(prev|man|ges)_/.test(i)), maqs:TUDO, repassa:true},
+    {id:'g3', pai:'g2', nome:'Técnico da L3', cor:'#e67e22', itens:['man_alertas', 'man_semdados', 'prev_saude', 'prev_proxima', 'prev_chance', 'ges_5w2h', 'ges_status'], maqs:['L3'], repassa:true},
+    {id:'g4', pai:'g3', nome:'Auxiliar da L3', cor:'#e74c3c', itens:['man_alertas', 'prev_proxima', 'ges_5w2h'], maqs:['L3'], repassa:false},
+    {id:'f1', pai:null, nome:'Financeiro', cor:'#2ecc71', itens:TODOS.filter(i => i.startsWith('fin_')), maqs:TUDO, repassa:true},
+    {id:'f2', pai:'f1', nome:'Analista financeiro', cor:'#1abc9c', itens:['fin_custo', 'fin_parada', 'fin_risco'], maqs:TUDO, repassa:true},
+    {id:'f3', pai:'f2', nome:'Estagiário', cor:'#f1c40f', itens:['fin_parada'], maqs:TUDO, repassa:false},
+    {id:'todos', pai:null, nome:'@todos', cor:'#99aab5', itens:[], maqs:TUDO, repassa:false}
+  ],
+  membros: [
+    {id:'m0', nome:'Você', dono:true, cargos:[]},
+    {id:'m1', nome:'Pessoa B', cargos:['g1']}, {id:'m2', nome:'Pessoa C', cargos:['g2']}, {id:'m3', nome:'Pessoa D', cargos:['g3']},
+    {id:'m4', nome:'Pessoa E', cargos:['g4']}, {id:'m5', nome:'Pessoa F', cargos:['f1']}, {id:'m6', nome:'Pessoa G', cargos:['f2']}, {id:'m7', nome:'Pessoa H', cargos:['f3']}
+  ],
+  tarefas: [
+    {id:'t1', titulo:'Revisar bomba, filtros e vazamentos do sistema hidráulico', item:'man_alertas', prazo:'10/07/2022', status:'a fazer', cargo:'g1', cadeia:['g1']},
+    {id:'t2', titulo:'Trocar ou afiar a ferramenta e revisar o avanço de corte', item:'ges_5w2h', prazo:'17/07/2022', status:'a fazer', cargo:'g2', cadeia:['g1', 'g2']},
+    {id:'t3', titulo:'Conferir fixação da peça e desgaste da ferramenta', item:'ges_5w2h', prazo:'24/07/2022', status:'em andamento', cargo:'g3', cadeia:['g1', 'g2', 'g3']},
+    {id:'t4', titulo:'Confirmar com a controladoria o custo real da hora parada', item:'fin_parada', prazo:'15/07/2022', status:'a fazer', cargo:'f1', cadeia:['f1']}
+  ]
+});
+const CHAVE = 'simulador-site-generativo-v6';
+let S;
+try { S = JSON.parse(localStorage.getItem(CHAVE)); } catch (e) { S = null; }
+if (!S || !Array.isArray(S.cargos) || !Array.isArray(S.tarefas)) S = EXEMPLO();
+const salvar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(S)); } catch (e) {} };
+let vendo = 'm0', view = 'visao', cargoSel = 'g1', aba = 'perm', rascunho = null, membroSel = 'm1', busca = '', chat = [];
+
+const C = id => S.cargos.find(c => c.id === id);
+const MB = id => S.membros.find(m => m.id === id);
+const plural = n => `${n} ${n === 1 ? 'informação' : 'informações'}`;
+const filhosC = id => S.cargos.filter(c => c.pai === id);
+const descendentes = id => filhosC(id).flatMap(c => [c.id, ...descendentes(c.id)]);
+const ancestrais = id => { const out = []; for (let c = C(id); c && c.pai; c = C(c.pai)) out.push(c.pai); return out; };
+// Ordem de árvore: setores na ordem da lista, cada cargo seguido dos que estão abaixo dele; @todos no fim
+const emArvore = () => { const out = []; const vai = (id, n) => { out.push({c:C(id), n}); filhosC(id).forEach(f => vai(f.id, n + 1)); }; S.cargos.filter(c => !c.pai && c.id !== 'todos').forEach(c => vai(c.id, 0)); out.push({c:C('todos'), n:0}); return out; };
+const cargosDe = m => S.cargos.filter(c => c.id === 'todos' || m.cargos.includes(c.id));
+const corDe = m => (m.dono ? '#f0b232' : (emArvore().map(x => x.c).find(c => m.cargos.includes(c.id)) || {cor:'#a1a1aa'}).cor);
+const meusCargos = v => (v.startsWith('cargo:') ? [v.slice(6)] : MB(v).dono ? [] : MB(v).cargos);
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, 6000); }
+
+// O que cada informação mostra para quem está vendo: item -> máquinas (união dos cargos que dão aquele item)
+function acesso(v) {
+  const out = {};
+  if (!v.startsWith('cargo:') && MB(v).dono) { TODOS.forEach(i => { out[i] = 'all'; }); return out; }
+  const cs = v.startsWith('cargo:') ? [C(v.slice(6)), C('todos')] : cargosDe(MB(v));
+  cs.forEach(c => c.itens.forEach(i => { out[i] = [...new Set([...(out[i] || []), ...c.maqs])]; }));
+  Object.keys(out).forEach(i => { if (!out[i].length) delete out[i]; else out[i] = chaveEscopo(out[i]); });
+  return out;
+}
+const nomeVendo = v => (v.startsWith('cargo:') ? `o cargo ${C(v.slice(6)).nome}` : MB(v).nome);
+
+// Quem pode mexer em quê: o dono em tudo; os outros, nos cargos abaixo de um cargo seu que pode repassar
+function poder(v) {
+  if (!v.startsWith('cargo:') && MB(v).dono) return {dono:true, pode:true, gerencia:S.cargos.map(c => c.id)};
+  const base = meusCargos(v).filter(id => C(id) && C(id).repassa);
+  return {dono:false, pode:base.length > 0, base, gerencia:[...new Set(base.flatMap(descendentes))]};
+}
+const editavel = (v, id) => poder(v).gerencia.includes(id);
+const podeCriarAbaixo = (v, id) => { const p = poder(v); return id !== 'todos' && (p.dono || p.base.includes(id) || (p.gerencia.includes(id) && C(id).repassa)); };
+// O que dá para ligar num cargo: o que o pai dele tem (cargo de topo: tudo, só o dono mexe)
+const limiteDe = c => (c.pai ? {itens:C(c.pai).itens, maqs:C(c.pai).maqs} : {itens:TODOS, maqs:TUDO});
+
+// Regra "tirou de cima, sai de baixo": cada cargo só pode ter o que o pai tem, descendo a árvore inteira
+function cascata() {
+  const perdas = [];
+  const desce = id => filhosC(id).forEach(c => {
+    const pai = C(id), pi = c.itens.filter(x => !pai.itens.includes(x)), pm = c.maqs.filter(x => !pai.maqs.includes(x));
+    if (pi.length || pm.length) {
+      c.itens = c.itens.filter(x => pai.itens.includes(x)); c.maqs = c.maqs.filter(x => pai.maqs.includes(x));
+      perdas.push(`${c.nome} perdeu ${[pi.length ? plural(pi.length) : '', pm.length ? pm.map(k => M[k].nome).join(', ') : ''].filter(Boolean).join(' e ')}`);
+    }
+    desce(c.id);
+  });
+  S.cargos.filter(c => !c.pai).forEach(c => desce(c.id));
+  return perdas;
+}
+
+// ---------------------------------------------------------------- tarefas que descem pela cadeia
+// Só delega a tarefa quem está com ela (num cargo que pode repassar), só para um cargo abaixo, e esse cargo precisa ver a informação da tarefa
+const comigo = v => S.tarefas.filter(t => (!v.startsWith('cargo:') && MB(v).dono) || meusCargos(v).includes(t.cargo));
+const naEquipe = v => { const g = poder(v).gerencia; return S.tarefas.filter(t => !comigo(v).includes(t) && g.includes(t.cargo)); };
+function destinos(v, t) {
+  const dono = !v.startsWith('cargo:') && MB(v).dono;
+  if (!dono && !(C(t.cargo).repassa && meusCargos(v).includes(t.cargo))) return [];
+  return (dono ? S.cargos.map(c => c.id) : descendentes(t.cargo)).filter(id => id !== t.cargo && id !== 'todos' && C(id).itens.includes(t.item));
+}
+const STATUS = ['a fazer', 'em andamento', 'feita'];
+
+// ---------------------------------------------------------------- explicações reutilizadas em tudo que aparece
+const como = (i, r, aberto) => `<details ${aberto ? 'open' : ''}><summary>De onde vem e como é calculado</summary><div class="how"><div><span>De onde vem</span>${i.origem}</div><div><span>Conta</span>${i.conta}</div><div><span>Com os números</span><code>${r.n}</code></div><div><span>Por quê</span>${i.porque}</div></div></details>`;
+const ITEM = id => ITENS.find(i => i.id === id);
+const tile = (i, e) => { const r = i.val(e); return `<article class="tile"><div class="tile-top"><b>${i.nome}</b><span class="pill ${i.st}">${PILL[i.st]}</span></div><div class="v">${r.v}</div><div class="s">${r.sub} · ${ESCOPO[e]}</div>${como(i, r)}</article>`; };
+function alertasDe(ac) {
+  const out = [], e = id => ac[id];
+  if (e('man_semdados')) maqs(e('man_semdados')).filter(k => M[k].semdados > 7).forEach(k => out.push({t:`${M[k].nome} sem enviar dados há ${M[k].semdados} dias`, d:`Última leitura em ${M[k].ultima}; a frota tem leitura até 03/07/2022. Regra: alerta acima de 7 dias. Por quê: sem dado, o painel fica cego para essa máquina.`}));
+  if (e('op_disp')) { const ab = maqs(e('op_disp')).filter(k => D[k].disp_teto < .9); if (ab.length) out.push({t:`${ab.map(k => M[k].nome).join(', ')} abaixo da meta de disponibilidade`, d:'Disponibilidade = 1 − horas paradas ÷ horas possíveis, contando cada registro de falha como uma parada de 1,08 h. Meta de 90% (Nakajima, OEE de classe mundial).'}); }
+  if (e('prev_saude')) maqs(e('prev_saude')).filter(k => M[k].saude < 50).forEach(k => out.push({t:`Saúde da ${M[k].nome} crítica: ${M[k].saude}/100`, d:`Saúde = 100 − chance de falha (${fmt(M[k].chance * 100, 1)}%), prevista pelo modelo com os 12 sensores. Abaixo de 50 é crítica.`}));
+  if (e('man_alertas')) maqs(e('man_alertas')).filter(k => M[k].hp >= 15).forEach(k => out.push({t:`${M[k].nome}: pressão hidráulica baixa em ${M[k].hp} dos últimos 30 registros`, d:'Limite de 101,7 bar = meio entre a média nas falhas (84,8) e a normal (118,6). Por quê: é o sensor que mais pesa na chance de falha.'}));
+  return out;
+}
+const svgCadeado = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>';
+const svgPessoa = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1-4 4-6 8-6s7 2 8 6"></path></svg>';
+const sw = (id, on, dis, label) => `<button type="button" role="switch" class="sw" aria-checked="${on}" ${dis ? 'disabled' : ''} data-sw="${id}" aria-label="${label}"><span></span></button>`;
+const guia = passos => `<div class="guia">${passos.map((p, i) => `<div><b class="n">${i + 1}</b><span>${p}</span></div>`).join('')}</div>`;
+const chipCargo = id => `<span class="rchip"><i style="background:${C(id).cor}"></i>${esc(C(id).nome)}</span>`;
+
+// ---------------------------------------------------------------- tela de cargos
+function telaCargos() {
+  const p = poder(vendo);
+  if (!C(cargoSel)) cargoSel = S.cargos[0].id;
+  const c = rascunho && rascunho.id === cargoSel ? rascunho : C(cargoSel), ed = editavel(vendo, c.id), lim = limiteDe(c);
+  const membros = c.id === 'todos' ? S.membros : S.membros.filter(m => m.cargos.includes(c.id));
+  const lista = emArvore().map(({c:x, n}) => { const qt = x.id === 'todos' ? S.membros.length : S.membros.filter(m => m.cargos.includes(x.id)).length;
+    return `<button type="button" class="dc-role" data-cargo="${x.id}" aria-current="${x.id === cargoSel}" style="padding-left:${10 + n * 18}px">${n ? '<span class="ramo">↳</span>' : ''}<i style="background:${x.cor}"></i><span class="nm">${esc(x.nome)}</span>${editavel(vendo, x.id) ? '' : `<span class="lk" title="Fora da sua área">${svgCadeado}</span>`}<span class="ct">${svgPessoa}${qt}</span></button>`; }).join('');
+  const sujo = rascunho && JSON.stringify(rascunho) !== JSON.stringify(C(rascunho.id));
+  const paiTxt = c.pai ? `Fica abaixo de ${chipCargo(c.pai)}. Só pode ter o que esse cargo tem.` : c.id === 'todos' ? 'Vale para todo mundo da empresa.' : 'Cargo do topo de um setor: só o dono configura.';
+  let corpo = '';
+  if (aba === 'perm') {
+    const q = busca.toLowerCase();
+    corpo = `<input class="dc-search" id="r-busca" placeholder="Buscar informações" value="${esc(busca)}" autocomplete="off" aria-label="Buscar informações">
+      ${q && !'pode repassar'.includes(q) ? '' : `<div class="dc-grp">Delegar para baixo</div>
+      <div class="dc-perm"><div class="dc-perm-top"><b>Pode repassar</b>${sw('repassa', c.repassa, !ed || c.id === 'todos', 'Pode repassar')}</div>
+      <p>Quem tem este cargo pode criar cargos abaixo dele, dar esses cargos a pessoas e delegar tarefas para baixo, sempre só com o que este cargo tem. Deixe desligado só no último nível.</p></div>`}
+      ${PACOTES.map(pk => { const l = ITENS.filter(i => i.pac === pk.id && (!q || i.nome.toLowerCase().includes(q))); if (!l.length) return '';
+        return `<div class="dc-grp">${pk.nome}</div>${l.map(i => { const pode = ed && lim.itens.includes(i.id), on = c.itens.includes(i.id), r = i.val('all');
+          return `<div class="dc-perm${pode ? '' : ' off'}"><div class="dc-perm-top"><b>${i.nome} <span class="pill ${i.st}">${PILL[i.st]}</span></b>${pode ? '' : `<span class="lk" title="${ed ? 'O cargo de cima não tem esta informação' : 'Fora da sua área'}">${svgCadeado}</span>`}${sw(i.id, on, !pode, i.nome)}</div>
+            <p>${i.porque}</p><details><summary>De onde vem e como é calculado</summary><div class="how"><div><span>De onde vem</span>${i.origem}</div><div><span>Conta</span>${i.conta}</div><div><span>Exemplo, todas as máquinas</span><code>${r.n}</code></div></div></details></div>`; }).join('')}`; }).join('')}`;
+  } else if (aba === 'maqs') {
+    corpo = `<p class="dc-hint">O cargo só enxerga as máquinas ligadas aqui, e só pode ter as que o cargo de cima tem.</p>
+      ${TUDO.map(k => { const pode = ed && lim.maqs.includes(k); return `<div class="dc-perm${pode ? '' : ' off'}"><div class="dc-perm-top"><b><span class="hash">#</span> makino-${k.toLowerCase()}</b>${pode ? '' : `<span class="lk">${svgCadeado}</span>`}${sw('maq:' + k, c.maqs.includes(k), !pode, M[k].nome)}</div>
+        <p>Centro de usinagem ${M[k].nome}, linha própria (Shopfloor-${k}). Última leitura: ${M[k].ultima}.</p></div>`; }).join('')}`;
+  } else if (aba === 'memb') {
+    const fora = S.membros.filter(m => !m.dono && !m.cargos.includes(c.id));
+    corpo = c.id === 'todos' ? '<p class="dc-hint">Todo membro da empresa tem o @todos.</p>' : `
+      ${ed && fora.length ? `<div class="dc-add"><select id="r-add" aria-label="Dar este cargo a uma pessoa">${fora.map(m => `<option value="${m.id}">${esc(m.nome)}</option>`).join('')}</select><button type="button" class="dc-btn" id="r-addbtn">Dar este cargo</button></div>` : ''}
+      ${membros.length ? membros.map(m => `<div class="dc-member"><span class="av" style="background:${corDe(m)}">${esc(m.nome[0])}</span><span>${esc(m.nome)}</span>${ed ? `<button type="button" class="dc-x" data-tirar="${m.id}" aria-label="Tirar ${esc(m.nome)} do cargo">×</button>` : ''}</div>`).join('') : '<p class="dc-hint">Ninguém tem este cargo ainda.</p>'}`;
+  } else {
+    corpo = `<label class="dc-f">Nome do cargo<input id="r-nome" value="${esc(c.nome)}" ${ed && c.id !== 'todos' ? '' : 'disabled'} autocomplete="off"></label>
+      <div class="dc-f">Cor<div class="swatches">${CORES.map(k => `<button type="button" class="swatch" data-cor="${k}" style="background:${k}" aria-label="Cor ${k}" aria-pressed="${c.cor === k}" ${ed && c.id !== 'todos' ? '' : 'disabled'}></button>`).join('')}</div></div>`;
+  }
+  const quem = p.dono ? 'como dono, pode mexer em todos os cargos.' : p.pode ? `pode mexer nos cargos abaixo de ${p.base.map(id => esc(C(id).nome)).join(' e ')}.` : 'só pode olhar: o seu cargo não repassa.';
+  return `<div class="title"><h1>Cargos</h1><p>Cada setor é uma árvore: o cargo de cima repassa para os de baixo, até o último nível. Você está como <b>${esc(nomeVendo(vendo))}</b>: ${quem}</p></div>
+  ${guia(['Escolha um cargo seu e clique em <b>Criar cargo abaixo</b>, ou escolha um cargo abaixo do seu.', 'Em <b>O que vê</b> e <b>Máquinas</b>, ligue só o que o cargo de cima tem.', 'Salve, dê o cargo a uma pessoa em <b>Pessoas</b> e veja a tela dela na barra amarela.'])}
+  <div class="dc">
+    <aside class="dc-side"><div class="dc-head"><span>Setores e cargos</span>${p.dono ? '<button type="button" class="dc-btn" id="r-criar-topo">Novo setor</button>' : ''}</div>
+      <p class="dc-hint" style="padding:0 6px 6px">Cada cargo fica embaixo do cargo que repassa para ele. Os nomes são exemplos: a empresa cria os seus.</p>${lista}</aside>
+    <section class="dc-main">
+      <div class="dc-title"><div><h2>${esc(c.nome)}</h2><p class="dc-hint">${paiTxt}</p></div>
+        <div class="dc-tools"><button type="button" class="dc-btn ghost" data-vercargo="${c.id}">Ver o site como este cargo</button>
+          ${podeCriarAbaixo(vendo, c.id) ? '<button type="button" class="dc-btn" id="r-criar">Criar cargo abaixo</button>' : ''}
+          ${ed && c.id !== 'todos' ? '<button type="button" class="dc-btn danger" id="r-excluir">Excluir</button>' : ''}</div></div>
+      <div class="dc-tabs" role="tablist">${[['perm', `O que vê (${c.itens.length})`], ['maqs', `Máquinas (${c.maqs.length})`], ['memb', `Pessoas (${membros.length})`], ['exib', 'Nome e cor']].map(([k, t]) => `<button type="button" role="tab" class="dc-tab" data-aba="${k}" aria-selected="${aba === k}">${t}</button>`).join('')}</div>
+      <div class="dc-body">${ed ? '' : `<p class="dc-lock">${svgCadeado} Só leitura: este cargo não está abaixo de um cargo seu que repassa.</p>`}${corpo}</div>
+      ${sujo ? '<div class="dc-save"><span>Você tem mudanças não salvas.</span><div><button type="button" class="dc-btn ghost" id="r-reset">Desfazer</button><button type="button" class="dc-btn green" id="r-salvar">Salvar</button></div></div>' : ''}
+    </section>
+  </div>`;
+}
+
+// ---------------------------------------------------------------- membros
+function telaMembros() {
+  const p = poder(vendo), m = MB(membroSel) || S.membros[0]; membroSel = m.id;
+  const grupos = [{nome:'Dono', l:S.membros.filter(x => x.dono)}].concat(emArvore().filter(x => x.c.id !== 'todos').map(({c}) => ({nome:c.nome, l:S.membros.filter(x => !x.dono && x.cargos.length && emArvore().map(y => y.c).find(y => x.cargos.includes(y.id)).id === c.id)})), [{nome:'Sem cargo', l:S.membros.filter(x => !x.dono && !x.cargos.length)}]);
+  const daveis = emArvore().map(x => x.c).filter(c => c.id !== 'todos' && !m.cargos.includes(c.id) && p.gerencia.includes(c.id));
+  const ac = acesso(m.id);
+  return `<div class="title"><h1>Membros</h1><p>As pessoas da empresa e os cargos de cada uma. Quem tem mais de um cargo vê a soma deles.</p></div>
+  ${guia(['Escolha uma pessoa na lista.', 'Dê ou tire cargos dela (só os da sua área).', 'Clique em <b>Ver o site como</b> para conferir o que ela vê.'])}
+  <div class="dc">
+    <aside class="dc-side">${grupos.filter(g => g.l.length).map(g => `<div class="dc-grp" style="padding:10px 6px 2px">${esc(g.nome)} (${g.l.length})</div>${g.l.map(x => `<button type="button" class="dc-role" data-membro="${x.id}" aria-current="${x.id === membroSel}"><span class="av" style="background:${corDe(x)}">${esc(x.nome[0])}</span><span class="nm">${esc(x.nome)}${x.dono ? ' 👑' : ''}</span></button>`).join('')}`).join('')}
+      ${p.pode ? `<form id="m-novo" class="dc-add" style="padding:12px 6px" novalidate><input id="m-nome" placeholder="Nome de quem vai entrar" autocomplete="off" aria-label="Nome do novo membro"><button class="dc-btn" type="submit">Adicionar</button></form>` : ''}</aside>
+    <section class="dc-main">
+      <div class="dc-profile"><span class="av big" style="background:${corDe(m)}">${esc(m.nome[0])}</span><div><h2>${esc(m.nome)}</h2><p class="dc-hint">${m.dono ? 'Dono da empresa: vê e gerencia tudo.' : `${plural(Object.keys(ac).length)} liberadas pelos cargos`}</p></div></div>
+      <div class="dc-body">
+        <div class="dc-grp">Cargos</div>
+        <div class="rchips">${m.dono ? '<span class="rchip"><i style="background:#f0b232"></i>Dono</span>' : m.cargos.map(id => `<span class="rchip"><i style="background:${C(id).cor}"></i>${esc(C(id).nome)}${p.gerencia.includes(id) ? `<button type="button" class="dc-x" data-tirarcargo="${id}" aria-label="Tirar cargo">×</button>` : ''}</span>`).join('') + '<span class="rchip"><i style="background:#99aab5"></i>@todos</span>'}</div>
+        ${!m.dono && daveis.length ? `<div class="dc-add"><select id="m-cargo" aria-label="Dar cargo">${daveis.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('')}</select><button type="button" class="dc-btn" id="m-darcargo">Dar cargo</button></div>` : ''}
+        <div class="dc-grp">O que aparece para ${esc(m.nome)}</div>
+        ${Object.keys(ac).length ? PACOTES.map(pk => { const l = ITENS.filter(i => i.pac === pk.id && i.id in ac); return l.length ? `<p class="dc-line"><b>${pk.nome}:</b> ${l.map(i => `${i.nome} <span class="dc-hint">(${ESCOPO[ac[i.id]]})</span>`).join(' · ')}</p>` : ''; }).join('') : '<p class="dc-hint">Nada ainda.</p>'}
+        <div class="btns"><button type="button" class="dc-btn" data-vermembro="${m.id}">Ver o site como ${esc(m.nome)}</button>${!m.dono && p.dono ? '<button type="button" class="dc-btn danger" id="m-remover">Remover da empresa</button>' : ''}</div>
+      </div>
+    </section>
+  </div>`;
+}
+
+// ---------------------------------------------------------------- tarefas
+function cartaoTarefa(t, podeAgir) {
+  const ds = podeAgir ? destinos(vendo, t) : [], it = ITEM(t.item);
+  return `<article class="task"><div class="task-top"><b>${esc(t.titulo)}</b><span class="pill ${t.status === 'feita' ? 'ok' : t.status === 'em andamento' ? 'prem' : 'novo'}">${t.status}</span></div>
+    <div class="task-meta"><span>Prazo ${t.prazo}</span><span>Com ${chipCargo(t.cargo)}</span><span>Precisa ver: ${it.nome}</span></div>
+    <div class="cadeia"><span class="hint">Caminho:</span> Dono ${t.cadeia.map(id => `→ ${C(id) ? chipCargo(id) : 'cargo removido'}`).join(' ')}</div>
+    ${podeAgir ? `<div class="task-acts">
+      <select data-status="${t.id}" aria-label="Mudar status">${STATUS.map(s => `<option ${s === t.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      ${ds.length ? `<select data-dest="${t.id}" aria-label="Delegar para">${ds.map(id => `<option value="${id}">${esc(C(id).nome)}</option>`).join('')}</select><button type="button" class="btn" data-delegar="${t.id}">Delegar para baixo</button>` : `<span class="hint">${C(t.cargo).repassa ? 'Nenhum cargo abaixo vê a informação desta tarefa.' : 'Último nível: este cargo executa, não repassa.'}</span>`}
+    </div>` : ''}
+  </article>`;
+}
+function telaTarefas() {
+  const p = poder(vendo), minhas = comigo(vendo), equipe = naEquipe(vendo);
+  const alvos = emArvore().map(x => x.c).filter(c => c.id !== 'todos' && (p.dono || p.gerencia.includes(c.id)));
+  return `<div class="title"><h1>Tarefas</h1><p>As ações descem pela cadeia: quem está com a tarefa pode delegar para um cargo abaixo, desde que esse cargo veja a informação da tarefa. O último nível executa.</p></div>
+  <section class="box"><div class="box-head"><h2>Com você</h2><p>${minhas.length} ${minhas.length === 1 ? 'tarefa' : 'tarefas'}</p></div>
+    ${minhas.length ? `<div class="tasks">${minhas.map(t => cartaoTarefa(t, true)).join('')}</div>` : '<p class="hint">Nenhuma tarefa com os seus cargos.</p>'}</section>
+  ${equipe.length ? `<section class="box"><div class="box-head"><h2>Na sua equipe</h2><p>Tarefas que estão com cargos abaixo do seu</p></div><div class="tasks">${equipe.map(t => cartaoTarefa(t, false)).join('')}</div></section>` : ''}
+  ${alvos.length ? `<section class="box"><div class="box-head"><h2>Nova tarefa</h2><p>Para um cargo da sua área</p></div>
+    <form id="t-nova" class="form-row" novalidate>
+      <label class="f">O que fazer<input id="t-titulo" placeholder="Ex.: Trocar o filtro hidráulico da L3" autocomplete="off"></label>
+      <label class="f">Para qual cargo<select id="t-cargo">${alvos.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('')}</select></label>
+      <label class="f">Informação que ele precisa ver<select id="t-item">${ITENS.filter(i => p.dono || meusCargos(vendo).some(id => C(id).itens.includes(i.id))).map(i => `<option value="${i.id}">${i.nome}</option>`).join('')}</select></label>
+      <label class="f">Prazo<input id="t-prazo" placeholder="dd/mm/aaaa" autocomplete="off"></label>
+      <button class="btn primary" type="submit">Criar tarefa</button>
+    </form></section>` : ''}`;
+}
+
+// ---------------------------------------------------------------- copiloto simulado: só responde com o que a pessoa recebeu
+const INTENCOES = [
+  {id:'custo', q:'Quanto perdi com paradas?', re:/(custo|perd|gast|dinheiro|r\$|preju)/i, precisa:['fin_custo'],
+   r:(ac) => { const e = ac.fin_custo, v = ITEM('fin_custo').val(e); return `As paradas custaram entre <b>${v.v.replace(' a ', ' e ')}</b> (${ESCOPO[e].toLowerCase()}). A faixa existe porque o dataset não diz se várias falhas no mesmo dia são uma parada só.`; }},
+  {id:'risco', q:'Qual máquina tem mais risco?', re:/(risco|vai parar|vai quebrar|prioridade|pior m)/i, precisa:['prev_chance', 'fin_risco'], algum:true,
+   r:(ac) => { const e = ac.prev_chance || ac.fin_risco, k = maqs(e)[0], partes = [ac.prev_chance ? `${pct(M[k].chance)} de chance de falha` : '', ac.fin_risco ? `risco de <b>${brl(M[k].risco)} por dia</b>` : ''].filter(Boolean); return `${maqs(e).length > 1 ? 'A máquina com mais risco é a' : 'A sua máquina, a'} <b>${M[k].nome}</b>: ${partes.join(', ')}.`; }},
+  {id:'prox', q:'Quando vem a próxima falha?', re:/(quando|próxima|proxima|horas)/i, precisa:['prev_proxima'],
+   r:(ac) => maqs(ac.prev_proxima).map(k => `<b>${M[k].nome}</b>: ~${fmt(M[k].prox, 1)} h`).join(' · ') + '. É uma média do ritmo recente, não um horário exato.'},
+  {id:'alerta', q:'Tem algum alerta agora?', re:/(alerta|sensor|press|hidr)/i, precisa:['man_alertas'],
+   r:(ac) => maqs(ac.man_alertas).map(k => `<b>${M[k].nome}</b>: pressão hidráulica baixa em ${M[k].hp} dos últimos 30 registros`).join(' · ') + '. Abaixo de 101,7 bar o alerta dispara.'},
+  {id:'tarefas', q:'Quais são as minhas tarefas?', re:/(tarefa|fazer|ação|acao|plano|primeiro)/i, precisa:[],
+   r:() => { const l = comigo(vendo); return l.length ? l.map(t => `<b>${esc(t.titulo)}</b> (até ${t.prazo}, ${t.status})`).join(' · ') : 'Você não tem tarefas agora.'; }},
+  {id:'dados', q:'Alguma máquina está sem enviar dados?', re:/(sem dados|enviando|leitura|conex)/i, precisa:['man_semdados'],
+   r:(ac) => maqs(ac.man_semdados).map(k => `<b>${M[k].nome}</b>: ${M[k].semdados ? M[k].semdados + ' dias sem dados' : 'em dia'}`).join(' · ') + '.'},
+  {id:'disp', q:'Como está a disponibilidade?', re:/(disponib|oee|funcionando)/i, precisa:['op_disp'],
+   r:(ac) => `A disponibilidade está entre <b>${ITEM('op_disp').val(ac.op_disp).v.replace(' a ', ' e ')}</b> (${ESCOPO[ac.op_disp].toLowerCase()}), para uma meta de 90%.`}
+];
+function quemLibera(itemId) {
+  const meus = meusCargos(vendo);
+  const acima = [...new Set(meus.flatMap(ancestrais))].filter(id => C(id).itens.includes(itemId) && C(id).repassa);
+  const pessoas = S.membros.filter(m => !m.dono && m.cargos.some(id => acima.includes(id))).map(m => m.nome);
+  return [...pessoas, 'Você (dono)'].slice(0, 3).join(', ');
+}
+function responder(pergunta) {
+  const ac = acesso(vendo), it = INTENCOES.find(x => x.re.test(pergunta));
+  if (!it) return {txt:'Não encontrei essa informação nos blocos da sua tela. Tente uma das sugestões abaixo.', fontes:[]};
+  const falta = it.precisa.filter(i => !(i in ac));
+  if (it.precisa.length && (it.algum ? falta.length === it.precisa.length : falta.length)) return {negado:true, txt:`Essa informação não foi liberada para você (${falta.map(i => ITEM(i).nome).join(', ')}). Quem pode liberar: <b>${esc(quemLibera(falta[0]))}</b>.`, fontes:[]};
+  return {txt: it.r(ac), fontes: it.id === 'tarefas' ? ['Tarefas'] : it.precisa.filter(i => i in ac).map(i => ITEM(i).nome)};
+}
+function telaCopiloto() {
+  return `<div class="title"><h1>Copiloto IA</h1><p>Respondendo como <b>${esc(nomeVendo(vendo))}</b>. Simulação: no app, o DeepSeek escreve a resposta, mas só com os números dos blocos liberados. Ele nunca calcula.</p></div>
+  <section class="box"><div class="chat">${chat.length ? chat.map(m => m.de === 'user' ? `<div class="msg user">${esc(m.txt)}</div>` : `<div class="msg bot${m.negado ? ' denied' : ''}"><span>${m.txt}</span>${m.fontes.length ? `<div class="src">${m.fontes.map(f => `<span>Fonte: ${f}</span>`).join('')}</div>` : ''}</div>`).join('') : '<p class="hint">Faça uma pergunta. Se a informação não foi liberada, o copiloto não responde e diz quem pode liberar.</p>'}</div>
+    <div class="chips">${INTENCOES.map(x => `<button class="chip" type="button" data-perg="${x.id}">${x.q}</button>`).join('')}</div>
+    <form id="ask" class="ask" novalidate><input id="ask-in" placeholder="Pergunte sobre as suas máquinas" autocomplete="off" aria-label="Pergunta"><button class="btn primary" type="submit">Enviar</button></form></section>`;
+}
+function perguntar(txt) { chat.push({de:'user', txt}); chat.push(Object.assign({de:'bot'}, responder(txt))); render(); }
+
+function telaCardapio() {
+  return `<div class="title"><h1>Cardápio de informações</h1><p>Tudo o que pode ser liberado por cargo: ${ITENS.length} informações em 8 pacotes. Cada uma explica de onde vem, a conta e o porquê. Valores das 3 máquinas juntas.</p></div>
+  <div class="legend"><span><span class="pill ok">Dados atuais</span> calculado direto dos dados</span><span><span class="pill prem">Com premissa</span> usa uma premissa com fonte</span><span><span class="pill novo">Dado novo</span> a fábrica ainda não envia</span></div>
+  ${PACOTES.map(pk => { const l = ITENS.filter(i => i.pac === pk.id); return `<section class="box"><div class="box-head"><h2>${pk.nome}</h2><p>${l.length} informações</p></div><div class="tiles">${l.map(i => { const r = i.val('all'); return `<article class="tile"><div class="tile-top"><b>${i.nome}</b><span class="pill ${i.st}">${PILL[i.st]}</span></div><div class="v">${r.v}</div><div class="s">${r.sub}</div>${como(i, r, true)}</article>`; }).join('')}</div></section>`; }).join('')}`;
+}
+function telaComo() {
+  const passo = (t, x) => `<div class="box"><h2>${t}</h2><p>${x}</p></div>`;
+  return `<div class="title"><h1>Como funciona</h1><p>O site não tem um painel fixo: ele monta a tela de cada pessoa com o que os cargos dela liberam.</p></div>
+  <div class="steps">${passo('1. O dono cria os setores', 'Cada setor começa com um cargo de topo (ex.: Gerência, Financeiro), com as informações e máquinas daquele setor.')}${passo('2. Cada chefe monta a sua equipe', 'Quem tem um cargo que pode repassar cria cargos abaixo dele, dá esses cargos às pessoas e delega tarefas, sempre só com o que tem.')}${passo('3. A cadeia desce até o fim', 'O penúltimo nível ainda repassa para o último. Só o último nível fica sem repassar: ele executa.')}${passo('4. O site monta a tela', 'Cada pessoa vê só os blocos, gráficos e tarefas que recebeu. O copiloto responde só com isso.')}</div>
+  <section class="box"><h2>As regras</h2><ol style="margin:0;padding-left:20px;display:grid;gap:4px"><li>Cada cargo fica abaixo de um cargo pai. O dono fica acima de todos.</li><li>Só dou o que tenho: um cargo só pode ter as informações e máquinas do cargo de cima.</li><li>Tirou de cima, sai de baixo: se o cargo de cima perde algo, todos abaixo perdem também.</li><li>Cada chefe só mexe nos cargos abaixo do seu, nunca nos de outro setor.</li><li>Tarefas descem pela cadeia: só delega quem está com a tarefa, para um cargo abaixo que veja a informação da tarefa.</li><li>Quem tem vários cargos vê a soma, cada informação só das máquinas que o cargo libera.</li><li>Tudo fica registrado. A IA nunca dá acesso sozinha.</li></ol></section>
+  <section class="box"><h2>Por que dá para confiar nos números</h2><p>Todos os números saem de um programa fixo e testado. O copiloto (o DeepSeek do app) só lê os blocos liberados: ele nunca calcula e nunca vê o que não foi liberado. O dataset está sujo: 1.186 falhas são confirmadas pelos sensores, 68 são duvidosas e 11 têm erro de dado. Como ele não tem a hora de cada registro, custo, horas paradas e disponibilidade aparecem como faixa: o piso conta no máximo uma parada por dia por máquina e o teto conta cada registro como uma parada.</p></section>`;
+}
+
+// ---------------------------------------------------------------- eventos
+const sujo = () => rascunho && JSON.stringify(rascunho) !== JSON.stringify(C(rascunho.id));
+const editar = () => { if (!rascunho || rascunho.id !== cargoSel) rascunho = JSON.parse(JSON.stringify(C(cargoSel))); return rascunho; };
+const bloqueado = () => { if (sujo()) { toast('Salve ou desfaça as mudanças do cargo antes de sair dele.'); return true; } return false; };
+function novoCargo(pai) {
+  const id = 'c' + Date.now().toString(36), base = pai ? C(pai) : null;
+  S.cargos.push({id, pai, nome: pai ? `abaixo de ${base.nome}` : 'novo setor', cor:'#95a5a6', itens:[], maqs: base ? [...base.maqs] : [...TUDO], repassa:true});
+  cargoSel = id; aba = 'perm'; rascunho = null; salvar(); render();
+  toast(pai ? 'Cargo criado abaixo. Ligue o que ele vê (só o que o cargo de cima tem) e salve.' : 'Setor criado no topo. Ligue o que ele vê e salve.');
+}
+
+document.addEventListener('click', ev => {
+  const t = ev.target.closest('button'); if (!t || t.disabled) return;
+  const d = t.dataset;
+  if (d.view) { if (bloqueado()) return; view = d.view; rascunho = null; render(); return; }
+  if (d.ver) { if (bloqueado()) return; vendo = d.ver; view = 'visao'; chat = []; rascunho = null; render(); window.scrollTo(0, 0); return; }
+  if (d.cargo) { if (d.cargo !== cargoSel && bloqueado()) return; cargoSel = d.cargo; rascunho = null; render(); return; }
+  if (d.aba) { aba = d.aba; render(); return; }
+  if (d.membro) { membroSel = d.membro; render(); return; }
+  if (d.vercargo) { if (bloqueado()) return; vendo = 'cargo:' + d.vercargo; view = 'visao'; chat = []; rascunho = null; render(); window.scrollTo(0, 0); return; }
+  if (d.vermembro) { vendo = d.vermembro; view = 'visao'; chat = []; render(); window.scrollTo(0, 0); return; }
+  if (d.perg) { perguntar(INTENCOES.find(x => x.id === d.perg).q); return; }
+  if (d.sw) {
+    const r = editar();
+    if (d.sw === 'repassa') r.repassa = !r.repassa;
+    else if (d.sw.startsWith('maq:')) { const k = d.sw.slice(4); r.maqs = r.maqs.includes(k) ? r.maqs.filter(x => x !== k) : [...r.maqs, k]; }
+    else r.itens = r.itens.includes(d.sw) ? r.itens.filter(x => x !== d.sw) : [...r.itens, d.sw];
+    render(); return;
+  }
+  if (d.cor) { editar().cor = d.cor; render(); return; }
+  if (d.tirar) { const m = MB(d.tirar); m.cargos = m.cargos.filter(x => x !== cargoSel); salvar(); render(); toast(`${m.nome} saiu do cargo.`); return; }
+  if (d.tirarcargo) { const m = MB(membroSel), nome = C(d.tirarcargo).nome; m.cargos = m.cargos.filter(x => x !== d.tirarcargo); salvar(); render(); toast(`${m.nome} perdeu o cargo ${nome}.`); return; }
+  if (d.delegar) {
+    const tf = S.tarefas.find(x => x.id === d.delegar), dest = document.querySelector(`[data-dest="${tf.id}"]`).value;
+    if (!destinos(vendo, tf).includes(dest)) { toast('Você só delega para um cargo abaixo que veja a informação da tarefa.'); return; }
+    tf.cargo = dest; tf.cadeia.push(dest); salvar(); render(); toast(`Tarefa delegada para ${C(dest).nome}.`); return;
+  }
+  switch (t.id) {
+    case 'r-criar': if (!bloqueado()) novoCargo(cargoSel); return;
+    case 'r-criar-topo': if (!bloqueado()) novoCargo(null); return;
+    case 'r-salvar': {
+      const i = S.cargos.findIndex(c => c.id === rascunho.id); if (rascunho.nome.trim() === '') { toast('Dê um nome ao cargo.'); return; }
+      const lim = limiteDe(rascunho); rascunho.itens = rascunho.itens.filter(x => lim.itens.includes(x)); rascunho.maqs = rascunho.maqs.filter(x => lim.maqs.includes(x));
+      S.cargos[i] = rascunho; rascunho = null; const perdas = cascata(); salvar(); render();
+      toast(perdas.length ? `Salvo. Em cascata: ${perdas.join('; ')}.` : 'Cargo salvo.'); return;
+    }
+    case 'r-reset': rascunho = null; render(); return;
+    case 'r-excluir': {
+      // os cargos de baixo sobem para o pai do cargo excluído e se ajustam ao que ele tem
+      const c = C(cargoSel); filhosC(c.id).forEach(f => { f.pai = c.pai; });
+      S.cargos = S.cargos.filter(x => x.id !== c.id); S.membros.forEach(m => { m.cargos = m.cargos.filter(x => x !== c.id); });
+      S.tarefas.forEach(tf => { if (tf.cargo === c.id) tf.cargo = c.pai || tf.cadeia[0]; });
+      cargoSel = c.pai || S.cargos[0].id; rascunho = null; const perdas = cascata(); salvar(); render(); toast(`Cargo ${c.nome} excluído. Quem estava abaixo subiu um nível.${perdas.length ? ' ' + perdas.join('; ') + '.' : ''}`); return;
+    }
+    case 'r-addbtn': { const m = MB(document.getElementById('r-add').value); m.cargos.push(cargoSel); salvar(); render(); toast(`${m.nome} recebeu o cargo ${C(cargoSel).nome}.`); return; }
+    case 'm-darcargo': { const m = MB(membroSel), id = document.getElementById('m-cargo').value; m.cargos.push(id); salvar(); render(); toast(`${m.nome} recebeu o cargo ${C(id).nome}.`); return; }
+    case 'm-remover': { const m = MB(membroSel); S.membros = S.membros.filter(x => x.id !== m.id); membroSel = 'm0'; salvar(); render(); toast(`${m.nome} saiu da empresa.`); return; }
+    case 'reset': S = EXEMPLO(); vendo = 'm0'; view = 'visao'; cargoSel = 'g1'; rascunho = null; chat = []; salvar(); render(); toast('Exemplo restaurado.'); return;
+  }
+});
+document.addEventListener('input', ev => {
+  if (ev.target.id === 'r-nome') { editar().nome = ev.target.value; if (!document.querySelector('.dc-save')) { const p = ev.target.selectionStart; render(); const el = document.getElementById('r-nome'); el.focus(); el.setSelectionRange(p, p); } }
+  if (ev.target.id === 'r-busca') { busca = ev.target.value; const p = ev.target.selectionStart; render(); const el = document.getElementById('r-busca'); el.focus(); el.setSelectionRange(p, p); }
+});
+document.addEventListener('change', ev => {
+  const t = ev.target;
+  if (t.id === 'tb-pessoa') { if (bloqueado()) { t.value = ''; return; } if (t.value) { vendo = t.value; view = 'visao'; chat = []; rascunho = null; render(); window.scrollTo(0, 0); } return; }
+  if (t.dataset.status) { const tf = S.tarefas.find(x => x.id === t.dataset.status); tf.status = t.value; salvar(); render(); toast(`Status: ${t.value}.`); }
+});
+document.addEventListener('submit', ev => {
+  ev.preventDefault();
+  if (ev.target.id === 'ask') { const q = document.getElementById('ask-in').value.trim(); if (q) perguntar(q); return; }
+  if (ev.target.id === 'm-novo') {
+    const nome = document.getElementById('m-nome').value.trim(); if (!nome) { toast('Escreva o nome de quem vai entrar.'); return; }
+    const id = 'm' + Date.now().toString(36); S.membros.push({id, nome, cargos:[]}); membroSel = id; salvar(); render(); toast(`${nome} entrou na empresa, ainda sem cargo. Dê um cargo da sua área.`); return;
+  }
+  if (ev.target.id === 't-nova') {
+    const titulo = document.getElementById('t-titulo').value.trim(), cargo = document.getElementById('t-cargo').value, item = document.getElementById('t-item').value, prazo = document.getElementById('t-prazo').value.trim() || 'sem prazo';
+    if (!titulo) { toast('Escreva o que precisa ser feito.'); return; }
+    if (!C(cargo).itens.includes(item)) { toast(`${C(cargo).nome} não vê "${ITEM(item).nome}". Escolha outra informação ou outro cargo.`); return; }
+    S.tarefas.push({id:'t' + Date.now().toString(36), titulo, item, prazo, status:'a fazer', cargo, cadeia:[...ancestrais(cargo).reverse().filter(id => poder(vendo).dono || poder(vendo).gerencia.includes(id) || meusCargos(vendo).includes(id)), cargo]});
+    salvar(); render(); toast(`Tarefa criada para ${C(cargo).nome}.`);
+  }
+});
+// ---------------------------------------------------------------- páginas do site gerado (o menu e as telas saem das permissões)
+const corVendo = v => (v.startsWith('cargo:') ? C(v.slice(6)).cor : corDe(MB(v)));
+const subVendo = v => (v.startsWith('cargo:') ? 'visualizando como cargo' : MB(v).dono ? 'Dono da empresa' : MB(v).cargos.map(id => C(id).nome).join(', ') || 'sem cargo');
+const chipsVendo = v => (v.startsWith('cargo:') ? `<span class="rchip"><i style="background:${C(v.slice(6)).cor}"></i>${esc(C(v.slice(6)).nome)}</span>` : MB(v).dono ? '<span class="rchip"><i style="background:#f0b232"></i>Dono da empresa</span>' : MB(v).cargos.map(id => `<span class="rchip"><i style="background:${C(id).cor}"></i>${esc(C(id).nome)}</span>`).join('') || '<span class="rchip">sem cargo</span>');
+const kpiHtml = (i, e) => { const r = i.val(e); return `<div class="kpi"><span class="l">${i.nome}</span><span class="v">${r.v}</span><span class="s">${r.sub}</span>${como(i, r)}</div>`; };
+const grafHtml = (id, ac) => { const gr = GRAF[id], i = ITEM(id), e = ac[id], r = i.val(e); return `<section class="box chart"><div class="box-head"><div><h2>${gr.t}</h2><p>${gr.s} · ${ESCOPO[e]}</p></div><span class="pill ${i.st}">${PILL[i.st]}</span></div>${gr.g(e)}${como(i, r)}</section>`; };
+const alertaHtml = (al, aberto) => `<section class="alerts" aria-label="Alertas"><b class="t">${al.length} ${al.length === 1 ? 'alerta' : 'alertas'}</b>${al.map(a => `<details class="al" ${aberto ? 'open' : ''}><summary>${a.t}</summary><p>${a.d}</p></details>`).join('')}</section>`;
+
+// Colunas da Frota: cada coluna só aparece se a pessoa recebeu a informação daquela coluna
+const COLS_FROTA = [
+  ['prev_saude', 'Saúde', k => `<span style="color:${corSaude(M[k].saude)};font-weight:700">${M[k].saude}/100</span>`],
+  ['prev_chance', 'Chance de falha', k => pct(M[k].chance)],
+  ['prev_proxima', 'Próxima falha', k => `~${fmt(M[k].prox, 1)} h`],
+  ['op_disp', 'Disponibilidade', k => `${pct(D[k].disp_teto)} a ${pct(D[k].disp_piso)}`],
+  ['op_falhas', 'Falhas', k => fmt(D[k].falhas)],
+  ['fin_risco', 'Risco por dia', k => brl(M[k].risco)],
+  ['man_semdados', 'Última leitura', k => M[k].semdados > 7 ? `<span style="color:var(--red);font-weight:600">${M[k].ultima} · ${M[k].semdados} dias sem dados</span>` : M[k].ultima]
+];
+const ALERTA_ITENS = ['man_semdados', 'op_disp', 'prev_saude', 'man_alertas'];
+const maqsDe = ac => ORDEM.filter(k => Object.values(ac).some(e => maqs(e).includes(k)));
+
+function paginas(v) {
+  const ac = acesso(v), tem = id => id in ac, p = poder(v);
+  return {
+    frota: COLS_FROTA.some(([id]) => tem(id)),
+    alertas: ALERTA_ITENS.some(tem),
+    pacotes: PACOTES.filter(pk => ITENS.some(i => i.pac === pk.id && tem(i.id))),
+    admin: p.pode,
+    tarefas: comigo(v).length > 0 || naEquipe(v).length > 0 || p.pode
+  };
+}
+
+function telaVisao() {
+  const ac = acesso(vendo), ids = Object.keys(ac), tem = id => id in ac, pg = paginas(vendo);
+  let h = `<div class="title"><h1>Visão geral</h1><p>${vendo.startsWith('cargo:') ? `Vendo como o cargo <b>${esc(C(vendo.slice(6)).nome)}</b>` : `Olá, <b>${esc(nomeVendo(vendo))}</b>`}. Esta tela foi montada com as ${plural(ids.length)} que ${vendo.startsWith('cargo:') ? 'este cargo libera' : 'os seus cargos liberam'}.</p><div class="rchips">${chipsVendo(vendo)}</div></div>`;
+  if (!ids.length) return h + '<div class="empty">Nenhum cargo liberou informações para você ainda. Quem gerencia os cargos precisa liberar alguma.</div>';
+  const al = alertasDe(ac);
+  if (al.length) h += alertaHtml(al.slice(0, 3)) + (al.length > 3 ? `<p class="hint">Mais ${al.length - 3} em Alertas.</p>` : '');
+  h += `<div class="kpis">${DESTAQUE.filter(tem).slice(0, 6).map(id => kpiHtml(ITEM(id), ac[id])).join('')}</div>`;
+  const gs = Object.keys(GRAF).filter(tem).slice(0, 2);
+  if (gs.length) h += `<div class="charts">${gs.map(id => grafHtml(id, ac)).join('')}</div>`;
+  const tf = comigo(vendo);
+  if (tf.length) h += `<section class="box"><div class="box-head"><h2>Suas tarefas</h2><button type="button" class="btn" data-view="tarefas">Abrir tarefas</button></div><div class="tasks">${tf.slice(0, 3).map(t => `<div class="task-mini"><b>${esc(t.titulo)}</b><span class="hint">até ${t.prazo} · ${t.status}</span></div>`).join('')}</div></section>`;
+  h += `<section class="box"><div class="box-head"><h2>Seus pacotes</h2><p>Cada pacote vira uma página no menu</p></div><div class="tiles">${pg.pacotes.map(pk => { const n = ITENS.filter(i => i.pac === pk.id && tem(i.id)).length; return `<button type="button" class="tile pk" data-view="pac:${pk.id}"><div class="tile-top"><b>${pk.nome}</b><span class="pill ok">${n} de ${ITENS.filter(i => i.pac === pk.id).length}</span></div><span class="s">${ITENS.filter(i => i.pac === pk.id && tem(i.id)).map(i => i.nome).join(' · ')}</span></button>`; }).join('')}</div></section>`;
+  return h;
+}
+
+function telaPacote(pid) {
+  const ac = acesso(vendo), pk = PACOTES.find(x => x.id === pid), l = ITENS.filter(i => i.pac === pid && i.id in ac);
+  let h = `<div class="title"><h1>${pk.nome}</h1><p>${l.length} de ${ITENS.filter(i => i.pac === pid).length} informações deste pacote liberadas para <b>${esc(nomeVendo(vendo))}</b>.</p></div>`;
+  h += `<div class="kpis">${l.slice(0, 4).map(i => kpiHtml(i, ac[i.id])).join('')}</div>`;
+  const gs = Object.keys(GRAF).filter(id => l.some(i => i.id === id));
+  if (gs.length) h += `<div class="charts">${gs.map(id => grafHtml(id, ac)).join('')}</div>`;
+  h += `<section class="box"><div class="box-head"><h2>Todas as informações</h2><p>Abra "De onde vem e como é calculado" em cada uma</p></div><div class="tiles">${l.map(i => tile(i, ac[i.id])).join('')}</div></section>`;
+  const fora = ITENS.filter(i => i.pac === pid && !(i.id in ac));
+  if (fora.length) h += `<p class="hint">Não liberadas para você neste pacote: ${fora.map(i => i.nome).join(', ')}.</p>`;
+  return h;
+}
+
+function telaFrota() {
+  const ac = acesso(vendo), cols = COLS_FROTA.filter(([id]) => id in ac), ms = ORDEM.filter(k => cols.some(([id]) => maqs(ac[id]).includes(k)));
+  const cel = (id, f, k) => (maqs(ac[id]).includes(k) ? f(k) : '<span class="hint">sem acesso</span>');
+  return `<div class="title"><h1>Frota</h1><p>As máquinas que os seus cargos liberam, só com as colunas que você recebeu.</p></div>
+  <section class="box"><div class="box-head"><h2>Máquinas</h2><p>${ms.length} ${ms.length === 1 ? 'máquina' : 'máquinas'}</p></div>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>Máquina</th><th>Linha</th>${cols.map(([, t]) => `<th>${t}</th>`).join('')}</tr></thead>
+    <tbody>${ms.map(k => `<tr><td><b>${M[k].nome}</b></td><td>Shopfloor-${k}</td>${cols.map(([id, , f]) => `<td>${cel(id, f, k)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <details><summary>De onde vêm estas colunas</summary><div class="how">${cols.map(([id, t]) => { const i = ITEM(id); return `<div><span>${t}</span>${i.origem} Conta: ${i.conta} Por quê: ${i.porque}</div>`; }).join('')}</div></details>
+  </section>`;
+}
+
+function telaAlertas() {
+  const ac = acesso(vendo), al = alertasDe(ac);
+  return `<div class="title"><h1>Alertas</h1><p>Só os alertas das informações e máquinas que você recebeu. Cada um explica de onde vem.</p></div>
+  ${al.length ? alertaHtml(al, true) : '<div class="empty">Nenhum alerta nas suas máquinas agora.</div>'}`;
+}
+
+function menu() {
+  const pg = paginas(vendo), b = (v, t, tag) => `<button class="nav" type="button" data-view="${v}" aria-current="${view === v ? 'page' : 'false'}">${t}${tag ? ` <span class="tag new">${tag}</span>` : ''}</button>`;
+  return `<div class="brand"><div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg></div><div style="display:flex;flex-direction:column"><b>Telemetry OS</b><span style="font-size:12px;color:var(--muted)">Operations</span></div></div>
+    <div class="navgrp"><span>Platform</span>${b('visao', 'Visão geral')}${pg.frota ? b('frota', 'Frota') : ''}${pg.alertas ? b('alertas', 'Alertas', alertasDe(acesso(vendo)).length || '') : ''}${pg.tarefas ? b('tarefas', 'Tarefas', comigo(vendo).length || '') : ''}${b('copiloto', 'Copiloto IA')}</div>
+    ${pg.pacotes.length ? `<div class="navgrp"><span>Seus pacotes</span>${pg.pacotes.map(pk => b('pac:' + pk.id, pk.nome)).join('')}</div>` : ''}
+    ${pg.admin ? `<div class="navgrp"><span>Sua equipe</span>${b('cargos', 'Cargos')}${b('membros', 'Membros')}</div>` : ''}
+    <div class="usercard"><span class="av" style="background:${corVendo(vendo)}">${esc(nomeVendo(vendo).replace(/^o cargo /, '')[0])}</span><div style="min-width:0"><b>${esc(nomeVendo(vendo).replace(/^o cargo /, ''))}</b><span>${esc(subVendo(vendo))}</span></div></div>`;
+}
+
+function barraTeste() {
+  const chip = (v, nome, cor, extra) => `<button type="button" class="tb-chip" data-ver="${v}" aria-pressed="${vendo === v}"><i style="background:${cor}"></i>${esc(nome)}${extra || ''}</button>`;
+  // cada setor numa linha, do cargo de topo até o último nível
+  const setores = S.cargos.filter(c => !c.pai && c.id !== 'todos').map(raiz => { const linha = []; const vai = (id, n) => { linha.push(chip('cargo:' + id, C(id).nome, C(id).cor, '')); filhosC(id).forEach(x => vai(x.id, n + 1)); }; vai(raiz.id, 0); return `<div class="tb-setor">${linha.join('<span class="tb-seta">→</span>')}</div>`; }).join('');
+  return `<div class="tb-setor">${chip('m0', 'Dono', '#f0b232', ' 👑')}<label class="tb-sep" for="tb-pessoa">ou uma pessoa:</label><select id="tb-pessoa" class="tb-sel"><option value="">escolher…</option>${S.membros.filter(m => !m.dono).map(m => `<option value="${m.id}" ${vendo === m.id ? 'selected' : ''}>${esc(m.nome)} · ${esc(m.cargos.map(id => C(id).nome).join(', ') || 'sem cargo')}</option>`).join('')}</select></div>${setores}`;
+}
+
+// ---------------------------------------------------------------- render e eventos
+const NOMES = {tarefas:'Tarefas', visao:'Visão geral', frota:'Frota', alertas:'Alertas', cargos:'Cargos', membros:'Membros', copiloto:'Copiloto IA', cardapio:'Cardápio de informações (só no protótipo)', como:'Como funciona (só no protótipo)'};
+function permitido(v) {
+  const pg = paginas(vendo);
+  if (v.startsWith('pac:')) return pg.pacotes.some(pk => 'pac:' + pk.id === v);
+  return {frota:pg.frota, alertas:pg.alertas, cargos:pg.admin, membros:pg.admin, tarefas:pg.tarefas}[v] ?? true;
+}
+function render() {
+  if (!vendo.startsWith('cargo:') && !MB(vendo)) vendo = 'm0';
+  if (vendo.startsWith('cargo:') && !C(vendo.slice(6))) vendo = 'm0';
+  if (!permitido(view)) view = 'visao';
+  document.getElementById('tb-chips').innerHTML = barraTeste();
+  document.getElementById('side').innerHTML = menu();
+  document.getElementById('crumb').textContent = view.startsWith('pac:') ? PACOTES.find(p => 'pac:' + p.id === view).nome : NOMES[view];
+  document.querySelectorAll('.tb-tools [data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === view));
+  const pagina = view.startsWith('pac:') ? () => telaPacote(view.slice(4)) : ({tarefas:telaTarefas, visao:telaVisao, frota:telaFrota, alertas:telaAlertas, cargos:telaCargos, membros:telaMembros, copiloto:telaCopiloto, cardapio:telaCardapio, como:telaComo})[view];
+  document.getElementById('view').innerHTML = pagina();
+}
+render();
+</script>
+
+</html>

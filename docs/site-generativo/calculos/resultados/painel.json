@@ -1,0 +1,491 @@
+{
+ "versao": 2,
+ "dataset": "Machine Downtime (Kaggle, CC0) · 3 centros de usinagem Makino",
+ "gerado_em": "2026-10-31T14:51:54+00:00",
+ "periodo": {
+  "inicio": "2021-11-24",
+  "fim": "2022-07-03",
+  "meses": 7.29
+ },
+ "premissas": {
+  "custo_hora": {
+   "valor": 189.78,
+   "fonte": "Custo de reposição: preço médio da hora de centro de usinagem 3 eixos, Grande SP (pesquisa GRV 2024, 480 empresas)"
+  },
+  "horas_por_falha": {
+   "valor": 1.08,
+   "fonte": "Siemens, True Cost of Downtime 2024: 27 h em 25 paradas por fábrica por mês"
+  },
+  "reducao_preditiva": {
+   "valor": 0.5,
+   "fonte": "Siemens, True Cost of Downtime 2024: -50% de paradas com manutenção preditiva"
+  },
+  "horas_dia": {
+   "valor": 24,
+   "fonte": "Convenção do grupo: o dataset não informa turnos"
+  },
+  "meta_disponibilidade": {
+   "valor": 0.9,
+   "fonte": "Nakajima (TPM): disponibilidade de classe mundial, componente do OEE de 85%"
+  },
+  "dias_sem_dados_alerta": {
+   "valor": 7,
+   "fonte": "Convenção do grupo: máquina sem leitura há mais de uma semana"
+  }
+ },
+ "frota": {
+  "registros": 2500,
+  "falhas": 1265,
+  "horas_paradas": 1366.2,
+  "custo_total": 259277.44,
+  "custo_mes": 35551.38,
+  "economia_preditiva_mes": 17775.69,
+  "falhas_semana": 1,
+  "custo_semana": 204.96
+ },
+ "maquinas": [
+  {
+   "maquina": "Makino-L3-Unit1-2015",
+   "registros": 818,
+   "falhas": 415,
+   "dias_com_registro": 136,
+   "horas_paradas": 448.2,
+   "custo": 85059.4,
+   "disponibilidade": 0.8627,
+   "abaixo_da_meta": true,
+   "mtbf_h": 7.9,
+   "falhas_semana": 0,
+   "ultima_leitura": "2022-06-07",
+   "dias_sem_dados": 26,
+   "sem_dados": true,
+   "chance_falha_hoje": 0.5334,
+   "risco_dia": 657.6,
+   "saude": 47,
+   "falhas_esperadas_dia": 3.21,
+   "proxima_falha_h": 7.5,
+   "posicao": 1
+  },
+  {
+   "maquina": "Makino-L2-Unit1-2015",
+   "registros": 808,
+   "falhas": 396,
+   "dias_com_registro": 139,
+   "horas_paradas": 427.7,
+   "custo": 81165.11,
+   "disponibilidade": 0.8718,
+   "abaixo_da_meta": true,
+   "mtbf_h": 8.4,
+   "falhas_semana": 0,
+   "ultima_leitura": "2022-06-19",
+   "dias_sem_dados": 14,
+   "sem_dados": true,
+   "chance_falha_hoje": 0.521,
+   "risco_dia": 620.7,
+   "saude": 48,
+   "falhas_esperadas_dia": 3.03,
+   "proxima_falha_h": 7.9,
+   "posicao": 2
+  },
+  {
+   "maquina": "Makino-L1-Unit1-2013",
+   "registros": 874,
+   "falhas": 454,
+   "dias_com_registro": 141,
+   "horas_paradas": 490.3,
+   "custo": 93052.93,
+   "disponibilidade": 0.8551,
+   "abaixo_da_meta": true,
+   "mtbf_h": 7.5,
+   "falhas_semana": 1,
+   "ultima_leitura": "2022-07-03",
+   "dias_sem_dados": 0,
+   "sem_dados": false,
+   "chance_falha_hoje": 0.4194,
+   "risco_dia": 532.82,
+   "saude": 58,
+   "falhas_esperadas_dia": 2.6,
+   "proxima_falha_h": 9.2,
+   "posicao": 3
+  }
+ ],
+ "alertas": [
+  "Makino-L3-Unit1-2015 sem enviar dados há 26 dias (última leitura 07/06/2022)",
+  "Makino-L2-Unit1-2015 sem enviar dados há 14 dias (última leitura 19/06/2022)",
+  "Makino-L3-Unit1-2015 abaixo da meta de disponibilidade (86,3% contra 90,0%)",
+  "Makino-L2-Unit1-2015 abaixo da meta de disponibilidade (87,2% contra 90,0%)",
+  "Makino-L1-Unit1-2013 abaixo da meta de disponibilidade (85,5% contra 90,0%)"
+ ],
+ "areas": [
+  {
+   "area": "Mecânica",
+   "falhas": 699,
+   "custo": 143268.72,
+   "parte": 0.5526,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 244,
+    "Makino-L2-Unit1-2015": 216,
+    "Makino-L3-Unit1-2015": 239
+   }
+  },
+  {
+   "area": "Operacional",
+   "falhas": 534,
+   "custo": 109449.92,
+   "parte": 0.4221,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 199,
+    "Makino-L2-Unit1-2015": 171,
+    "Makino-L3-Unit1-2015": 164
+   }
+  },
+  {
+   "area": "Automação",
+   "falhas": 31,
+   "custo": 6353.83,
+   "parte": 0.0245,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 11,
+    "Makino-L2-Unit1-2015": 9,
+    "Makino-L3-Unit1-2015": 11
+   }
+  },
+  {
+   "area": "Elétrica",
+   "falhas": 1,
+   "custo": 204.96,
+   "parte": 0.0008,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 0,
+    "Makino-L2-Unit1-2015": 0,
+    "Makino-L3-Unit1-2015": 1
+   }
+  }
+ ],
+ "areas_fonte": "Premissa do grupo: cada sensor ligado à equipe que cuida daquele sistema. A área de uma falha é a do sensor que mais puxou a chance de falha naquele registro.",
+ "mensal": [
+  {
+   "mes": "2021-11",
+   "registros": 1,
+   "falhas": 1,
+   "taxa_falha": 1.0,
+   "custo": 204.96,
+   "disponibilidade": 0.955,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 0,
+    "Makino-L2-Unit1-2015": 0,
+    "Makino-L3-Unit1-2015": 1
+   }
+  },
+  {
+   "mes": "2021-12",
+   "registros": 24,
+   "falhas": 13,
+   "taxa_falha": 0.5417,
+   "custo": 2664.51,
+   "disponibilidade": 0.9656,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 8,
+    "Makino-L2-Unit1-2015": 3,
+    "Makino-L3-Unit1-2015": 2
+   }
+  },
+  {
+   "mes": "2022-01",
+   "registros": 178,
+   "falhas": 87,
+   "taxa_falha": 0.4888,
+   "custo": 17831.73,
+   "disponibilidade": 0.9398,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 34,
+    "Makino-L2-Unit1-2015": 23,
+    "Makino-L3-Unit1-2015": 30
+   }
+  },
+  {
+   "mes": "2022-02",
+   "registros": 597,
+   "falhas": 296,
+   "taxa_falha": 0.4958,
+   "custo": 60668.87,
+   "disponibilidade": 0.8414,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 90,
+    "Makino-L2-Unit1-2015": 93,
+    "Makino-L3-Unit1-2015": 113
+   }
+  },
+  {
+   "mes": "2022-03",
+   "registros": 1048,
+   "falhas": 533,
+   "taxa_falha": 0.5086,
+   "custo": 109244.96,
+   "disponibilidade": 0.7421,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 194,
+    "Makino-L2-Unit1-2015": 167,
+    "Makino-L3-Unit1-2015": 172
+   }
+  },
+  {
+   "mes": "2022-04",
+   "registros": 527,
+   "falhas": 280,
+   "taxa_falha": 0.5313,
+   "custo": 57389.47,
+   "disponibilidade": 0.8568,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 110,
+    "Makino-L2-Unit1-2015": 87,
+    "Makino-L3-Unit1-2015": 83
+   }
+  },
+  {
+   "mes": "2022-05",
+   "registros": 116,
+   "falhas": 50,
+   "taxa_falha": 0.431,
+   "custo": 10248.12,
+   "disponibilidade": 0.9619,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 16,
+    "Makino-L2-Unit1-2015": 20,
+    "Makino-L3-Unit1-2015": 14
+   }
+  },
+  {
+   "mes": "2022-06",
+   "registros": 8,
+   "falhas": 4,
+   "taxa_falha": 0.5,
+   "custo": 819.85,
+   "disponibilidade": 0.9775,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 1,
+    "Makino-L2-Unit1-2015": 3,
+    "Makino-L3-Unit1-2015": 0
+   }
+  },
+  {
+   "mes": "2022-07",
+   "registros": 1,
+   "falhas": 1,
+   "taxa_falha": 1.0,
+   "custo": 204.96,
+   "disponibilidade": 0.955,
+   "por_maquina": {
+    "Makino-L1-Unit1-2013": 1,
+    "Makino-L2-Unit1-2015": 0,
+    "Makino-L3-Unit1-2015": 0
+   }
+  }
+ ],
+ "tendencia": {
+  "de": "2022-04",
+  "para": "2022-05",
+  "taxa_antes": 0.5313,
+  "taxa_depois": 0.431,
+  "disponibilidade_antes": 0.8568,
+  "disponibilidade_depois": 0.9619,
+  "melhorou": true
+ },
+ "sensores": [
+  {
+   "coluna": "Hydraulic_Pressure(bar)",
+   "nome": "Pressão hidráulica (bar)",
+   "media_nas_falhas": 84.76,
+   "media_normal": 118.57,
+   "peso": -1.38
+  },
+  {
+   "coluna": "Cutting(kN)",
+   "nome": "Força de corte (kN)",
+   "media_nas_falhas": 3.06,
+   "media_normal": 2.5,
+   "peso": 0.916
+  },
+  {
+   "coluna": "Torque(Nm)",
+   "nome": "Torque (Nm)",
+   "media_nas_falhas": 22.76,
+   "media_normal": 27.78,
+   "peso": -0.888
+  },
+  {
+   "coluna": "Spindle_Speed(RPM)",
+   "nome": "Rotação do fuso (RPM)",
+   "media_nas_falhas": 21319.36,
+   "media_normal": 19199.63,
+   "peso": 0.36
+  },
+  {
+   "coluna": "Coolant_Temperature",
+   "nome": "Temperatura do refrigerante (°C)",
+   "media_nas_falhas": 19.98,
+   "media_normal": 17.09,
+   "peso": 0.247
+  },
+  {
+   "coluna": "Coolant_Pressure(bar)",
+   "nome": "Pressão do refrigerante (bar)",
+   "media_nas_falhas": 5.11,
+   "media_normal": 4.77,
+   "peso": 0.208
+  },
+  {
+   "coluna": "Voltage(volts)",
+   "nome": "Tensão (V)",
+   "media_nas_falhas": 349.26,
+   "media_normal": 348.73,
+   "peso": 0.05
+  },
+  {
+   "coluna": "Spindle_Bearing_Temperature(?C)",
+   "nome": "Temperatura do rolamento do fuso (°C)",
+   "media_nas_falhas": 34.99,
+   "media_normal": 35.14,
+   "peso": -0.046
+  },
+  {
+   "coluna": "Hydraulic_Oil_Temperature(?C)",
+   "nome": "Temperatura do óleo hidráulico (°C)",
+   "media_nas_falhas": 47.57,
+   "media_normal": 47.67,
+   "peso": -0.041
+  },
+  {
+   "coluna": "Spindle_Vibration(?m)",
+   "nome": "Vibração do fuso (µm)",
+   "media_nas_falhas": 1.0,
+   "media_normal": 1.02,
+   "peso": -0.04
+  },
+  {
+   "coluna": "Tool_Vibration(?m)",
+   "nome": "Vibração da ferramenta (µm)",
+   "media_nas_falhas": 25.37,
+   "media_normal": 25.45,
+   "peso": 0.037
+  },
+  {
+   "coluna": "Air_System_Pressure(bar)",
+   "nome": "Pressão do ar (bar)",
+   "media_nas_falhas": 6.5,
+   "media_normal": 6.5,
+   "peso": 0.003
+  }
+ ],
+ "plano_5w2h": [
+  {
+   "id": "Hydraulic_Pressure(bar)",
+   "area": "Mecânica",
+   "prazo": "2022-07-10",
+   "status": "a fazer",
+   "concluida_em": null,
+   "no_prazo": true,
+   "o_que": "Revisar bomba, filtros e vazamentos do sistema hidráulico",
+   "por_que": "Nas falhas, o valor de Pressão hidráulica (bar) fica mais baixo: média 84,8 contra 118,6 no funcionamento normal",
+   "onde": "Todas as máquinas, começando pela Makino-L3-Unit1-2015 (maior risco em R$)",
+   "quando": "Semana 1 (até 10/07/2022)",
+   "quem": "Técnico de manutenção hidráulica",
+   "como": "Inspeção semanal e alerta quando o sensor ficar abaixo de 101,7",
+   "quanto": "Até R$ 5.925 por mês se paga com a economia prevista"
+  },
+  {
+   "id": "Cutting(kN)",
+   "area": "Operacional",
+   "prazo": "2022-07-17",
+   "status": "a fazer",
+   "concluida_em": null,
+   "no_prazo": true,
+   "o_que": "Trocar ou afiar a ferramenta e revisar o avanço de corte",
+   "por_que": "Nas falhas, o valor de Força de corte (kN) fica mais alto: média 3,1 contra 2,5 no funcionamento normal",
+   "onde": "Todas as máquinas, começando pela Makino-L3-Unit1-2015 (maior risco em R$)",
+   "quando": "Semana 2 (até 17/07/2022)",
+   "quem": "Ferramentaria",
+   "como": "Inspeção semanal e alerta quando o sensor ficar acima de 2,8",
+   "quanto": "Até R$ 5.925 por mês se paga com a economia prevista"
+  },
+  {
+   "id": "Torque(Nm)",
+   "area": "Operacional",
+   "prazo": "2022-07-24",
+   "status": "a fazer",
+   "concluida_em": null,
+   "no_prazo": true,
+   "o_que": "Conferir fixação da peça e desgaste da ferramenta",
+   "por_que": "Nas falhas, o valor de Torque (Nm) fica mais baixo: média 22,8 contra 27,8 no funcionamento normal",
+   "onde": "Todas as máquinas, começando pela Makino-L3-Unit1-2015 (maior risco em R$)",
+   "quando": "Semana 3 (até 24/07/2022)",
+   "quem": "Operador e ferramentaria",
+   "como": "Inspeção semanal e alerta quando o sensor ficar abaixo de 25,3",
+   "quanto": "Até R$ 5.925 por mês se paga com a economia prevista"
+  }
+ ],
+ "acoes": {
+  "total": 3,
+  "feitas": 0,
+  "no_prazo": 3,
+  "atrasadas": 0
+ },
+ "plano_coleta": [
+  {
+   "pilar": "Disponibilidade",
+   "falta": "Início e fim de cada parada e horas planejadas por turno",
+   "como": "Apontamento no painel da máquina ou no MES"
+  },
+  {
+   "pilar": "Desempenho",
+   "falta": "Tempo de ciclo ideal e peças produzidas por hora",
+   "como": "Contador de peças do CNC"
+  },
+  {
+   "pilar": "Qualidade",
+   "falta": "Peças boas e peças refugadas",
+   "como": "Registro da inspeção de qualidade"
+  },
+  {
+   "pilar": "Causa da parada",
+   "falta": "Área real de cada parada: elétrica, mecânica, automação ou operacional",
+   "como": "Ordem de manutenção no SAP"
+  },
+  {
+   "pilar": "Preventivas",
+   "falta": "Preventivas planejadas e realizadas",
+   "como": "Ordens de manutenção do SAP (via API)"
+  }
+ ],
+ "modelo": {
+  "dados_ate": "2022-07-03",
+  "treinado_em": "2026-10-31T14:51:54+00:00",
+  "registros": 2500,
+  "confiavel": true,
+  "validacao": {
+   "registros": 750,
+   "acerto": 0.8986666666666666,
+   "chute": 0.5146666666666667,
+   "tipo": "30% mais recentes"
+  },
+  "validacoes": [
+   {
+    "tipo": "30% mais recentes",
+    "ate": "2022-07-03",
+    "registros": 750,
+    "acerto": 0.8986666666666666,
+    "chute": 0.5146666666666667
+   }
+  ]
+ },
+ "lotes": [
+  {
+   "lote": 1,
+   "arquivo": "machine_downtime.csv",
+   "recebido_em": "2026-10-31T14:51:54+00:00",
+   "linhas": 2500,
+   "novas": 2500,
+   "duplicadas": 0,
+   "invalidas": 0
+  }
+ ]
+}

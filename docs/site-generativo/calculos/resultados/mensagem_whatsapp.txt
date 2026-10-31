@@ -1,0 +1,8 @@
+*Painel do Gestor · semana até 03/07/2022*
+Falhas na semana: 1 · custo estimado: R$ 205
+Atenção: Makino-L3-Unit1-2015 sem enviar dados há 26 dias (última leitura 07/06/2022)
+Atenção: Makino-L2-Unit1-2015 sem enviar dados há 14 dias (última leitura 19/06/2022)
+Área que mais gera falhas: Mecânica (55,3%)
+Máquina em maior risco: Makino-L3-Unit1-2015 (53,3% de chance, R$ 658 por dia)
+Ação da semana: Revisar bomba, filtros e vazamentos do sistema hidráulico (Técnico de manutenção hidráulica)
+Com manutenção preditiva, a economia estimada é de R$ 17.776 por mês.

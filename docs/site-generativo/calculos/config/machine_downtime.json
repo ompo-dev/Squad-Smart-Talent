@@ -1,0 +1,32 @@
+{
+  "nome": "Machine Downtime (Kaggle, CC0) · 3 centros de usinagem Makino",
+  "arquivo": {"encoding": "latin-1", "separador": ","},
+  "coluna_maquina": "Machine_ID",
+  "coluna_data": "Date",
+  "formato_data": "%d-%m-%Y",
+  "coluna_falha": "Downtime",
+  "valor_falha": "Machine_Failure",
+  "areas_fonte": "Premissa do grupo: cada sensor ligado à equipe que cuida daquele sistema. A área de uma falha é a do sensor que mais puxou a chance de falha naquele registro.",
+  "sensores": {
+    "Hydraulic_Pressure(bar)": {"nome": "Pressão hidráulica (bar)", "area": "Mecânica", "acao": "Revisar bomba, filtros e vazamentos do sistema hidráulico", "responsavel": "Técnico de manutenção hidráulica"},
+    "Coolant_Pressure(bar)": {"nome": "Pressão do refrigerante (bar)", "area": "Mecânica", "acao": "Revisar bomba e bicos do sistema de refrigeração", "responsavel": "Técnico de manutenção"},
+    "Air_System_Pressure(bar)": {"nome": "Pressão do ar (bar)", "area": "Mecânica"},
+    "Coolant_Temperature": {"nome": "Temperatura do refrigerante (°C)", "area": "Mecânica", "acao": "Limpar trocador de calor e conferir nível do refrigerante", "responsavel": "Técnico de manutenção"},
+    "Hydraulic_Oil_Temperature(?C)": {"nome": "Temperatura do óleo hidráulico (°C)", "area": "Mecânica"},
+    "Spindle_Bearing_Temperature(?C)": {"nome": "Temperatura do rolamento do fuso (°C)", "area": "Mecânica"},
+    "Spindle_Vibration(?m)": {"nome": "Vibração do fuso (µm)", "area": "Mecânica"},
+    "Tool_Vibration(?m)": {"nome": "Vibração da ferramenta (µm)", "area": "Operacional"},
+    "Spindle_Speed(RPM)": {"nome": "Rotação do fuso (RPM)", "area": "Automação", "acao": "Revisar os parâmetros de rotação do fuso nos programas CNC", "responsavel": "Programador CNC"},
+    "Voltage(volts)": {"nome": "Tensão (V)", "area": "Elétrica", "acao": "Conferir alimentação elétrica, cabos e painel da máquina", "responsavel": "Eletricista de manutenção"},
+    "Torque(Nm)": {"nome": "Torque (Nm)", "area": "Operacional", "acao": "Conferir fixação da peça e desgaste da ferramenta", "responsavel": "Operador e ferramentaria"},
+    "Cutting(kN)": {"nome": "Força de corte (kN)", "area": "Operacional", "acao": "Trocar ou afiar a ferramenta e revisar o avanço de corte", "responsavel": "Ferramentaria"}
+  },
+  "premissas": {
+    "custo_hora": {"valor": 189.78, "fonte": "Custo de reposição: preço médio da hora de centro de usinagem 3 eixos, Grande SP (pesquisa GRV 2024, 480 empresas)"},
+    "horas_por_falha": {"valor": 1.08, "fonte": "Siemens, True Cost of Downtime 2024: 27 h em 25 paradas por fábrica por mês"},
+    "reducao_preditiva": {"valor": 0.5, "fonte": "Siemens, True Cost of Downtime 2024: -50% de paradas com manutenção preditiva"},
+    "horas_dia": {"valor": 24, "fonte": "Convenção do grupo: o dataset não informa turnos"},
+    "meta_disponibilidade": {"valor": 0.9, "fonte": "Nakajima (TPM): disponibilidade de classe mundial, componente do OEE de 85%"},
+    "dias_sem_dados_alerta": {"valor": 7, "fonte": "Convenção do grupo: máquina sem leitura há mais de uma semana"}
+  }
+}

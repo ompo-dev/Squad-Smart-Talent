@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memória de Cálculo do Painel do Gestor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: relatório de uma coluna, como um laudo técnico de manutenção; contas em blocos de "ficha" com fonte mono */
+:root {
+  --bg: #f6f7f5;
+  --paper: #ffffff;
+  --ink: #1d2420;
+  --muted: #5d6862;
+  --line: #d9dfdb;
+  --accent: #2e6a4a;
+  --accent-soft: #e3efe8;
+  --ok: #2e6a4a;  --ok-bg: #e3efe8;
+  --warn: #8a5a12; --warn-bg: #f7ecd6;
+  --bad: #9b3b2c;  --bad-bg: #f6e1dc;
+  --bar: #2e6a4a; --bar-neg: #b5523b;
+  --f-display: "Archivo", "Arial Narrow", Arial, sans-serif;
+  --f-body: "Public Sans", "Segoe UI", Arial, sans-serif;
+  --f-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141816; --paper: #1b201d; --ink: #e6ebe7; --muted: #9aa69f; --line: #2f3833;
+  --accent: #7fc79f; --accent-soft: #1f3328;
+  --ok: #7fc79f; --ok-bg: #1f3328; --warn: #e8bd6e; --warn-bg: #352b17; --bad: #ef9886; --bad-bg: #3a221d;
+  --bar: #6fb98f; --bar-neg: #e0846f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141816; --paper: #1b201d; --ink: #e6ebe7; --muted: #9aa69f; --line: #2f3833;
+  --accent: #7fc79f; --accent-soft: #1f3328;
+  --ok: #7fc79f; --ok-bg: #1f3328; --warn: #e8bd6e; --warn-bg: #352b17; --bad: #ef9886; --bad-bg: #3a221d;
+  --bar: #6fb98f; --bar-neg: #e0846f; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 40px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 26px; font-weight: 700; margin-top: 56px; padding-top: 20px; border-top: 2px solid var(--ink); }
+h3 { font-size: 19px; font-weight: 700; margin-top: 28px; }
+p { margin: 12px 0; max-width: 68ch; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.lead { font-size: 19px; color: var(--muted); max-width: 60ch; }
+.meta { font-size: 14px; color: var(--muted); }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 28px; }
+.kpi { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.kpi b { font-family: var(--f-mono); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 13px; color: var(--muted); line-height: 1.4; }
+
+.calc { background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 4px; padding: 14px 18px; margin: 14px 0; font-family: var(--f-mono); font-size: 14px; line-height: 1.9; overflow-x: auto; }
+.calc .r { color: var(--accent); font-weight: 600; }
+.calc .c { color: var(--muted); }
+
+.tbl { overflow-x: auto; margin: 14px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--f-display); font-weight: 700; font-size: 13px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted); background: var(--accent-soft); }
+tr:last-child td { border-bottom: 0; }
+td.n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+.tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.t-ok { color: var(--ok); background: var(--ok-bg); }
+.t-warn { color: var(--warn); background: var(--warn-bg); }
+.t-bad { color: var(--bad); background: var(--bad-bg); }
+
+.note { background: var(--warn-bg); color: var(--ink); border-radius: 6px; padding: 14px 18px; margin: 18px 0; }
+.note strong { color: var(--warn); }
+.say { background: var(--accent-soft); border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-style: italic; }
+
+.prem { counter-reset: p; list-style: none; padding: 0; margin: 14px 0; display: grid; gap: 10px; }
+.prem li { counter-increment: p; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px 12px 58px; position: relative; }
+.prem li::before { content: "P" counter(p); position: absolute; left: 16px; top: 12px; font-family: var(--f-mono); font-weight: 600; color: var(--accent); }
+
+.bars { display: grid; gap: 8px; margin: 16px 0; }
+.bar { display: grid; grid-template-columns: minmax(120px, 230px) 1fr; gap: 12px; align-items: center; font-size: 14px; }
+.bar > span:first-child { text-align: right; color: var(--muted); }
+.track { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fill { height: 18px; border-radius: 3px; background: var(--bar); flex: none; }
+.fill.neg { background: var(--bar-neg); }
+.track .num { font-size: 13px; white-space: nowrap; }
+.legend { font-size: 13px; color: var(--muted); }
+
+dl.gloss { display: grid; grid-template-columns: minmax(130px, 210px) 1fr; gap: 10px 20px; margin: 16px 0; }
+dl.gloss dt { font-weight: 600; }
+dl.gloss dd { margin: 0; color: var(--ink); }
+.qa { margin: 16px 0; display: grid; gap: 14px; }
+.qa div { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 14px 18px; }
+.qa b { display: block; font-family: var(--f-display); margin-bottom: 4px; }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+
+@media (max-width: 560px) {
+  .bar { grid-template-columns: 1fr; gap: 2px; }
+  .bar > span:first-child { text-align: left; }
+  dl.gloss { grid-template-columns: 1fr; gap: 2px 0; }
+  dl.gloss dd { margin-bottom: 10px; }
+}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Smart Talents · Grupo 4 · Tema 1 (OEE)</div>
+  <h1 style="margin-top:10px">Memória de cálculo do Painel do Gestor</h1>
+  <p class="lead">Este relatório mostra, passo a passo, de onde veio cada número do Painel do Gestor: os dados usados, as fontes, as premissas, as contas e o que ainda não foi possível verificar.</p>
+  <p class="meta">Pergunta do painel: <strong>qual máquina vai parar, quanto isso custa e o que fazer primeiro?</strong> · Dados de 24/11/2021 a 03/07/2022 · Contas refeitas e conferidas em 31/10/2026.</p>
+</header>
+
+<section>
+<h2>1. Resumo em um minuto</h2>
+<div class="kpis">
+  <div class="kpi"><b>R$ 35.551</b><span>custo estimado das paradas por mês, nas 3 máquinas</span></div>
+  <div class="kpi"><b>85,5–87,2%</b><span>disponibilidade das máquinas (tempo funcionando)</span></div>
+  <div class="kpi"><b>L3</b><span>máquina com maior risco: R$ 658 por dia</span></div>
+  <div class="kpi"><b>R$ 17.776</b><span>economia por mês com manutenção preditiva</span></div>
+  <div class="kpi"><b>Hidráulico</b><span>primeira ação do plano 5W2H</span></div>
+</div>
+<div class="note"><strong>Leia antes de usar os números.</strong> As contas estão certas e foram conferidas. O ponto fraco são as premissas: o dataset não traz a duração das paradas nem custos reais, então os valores em R$ mostram o <em>método</em> de gestão, não o prejuízo real de uma fábrica.</div>
+</section>
+
+<section>
+<h2>2. Os dados usados</h2>
+<p>A base é uma planilha pública de 3 máquinas de usinagem da marca Makino. Usinagem é o processo de cortar e furar peças de metal, o mesmo tipo de trabalho que existe nas fábricas de tratores e colheitadeiras.</p>
+<div class="tbl"><table>
+<tr><th>O que tem</th><th>Detalhe</th></tr>
+<tr><td>Registros</td><td class="num">2.500 linhas</td></tr>
+<tr><td>Máquinas</td><td>Makino-L1 (874 registros), Makino-L2 (808), Makino-L3 (818)</td></tr>
+<tr><td>Período</td><td>24/11/2021 a 03/07/2022 · 222 dias corridos · 164 dias com registro</td></tr>
+<tr><td>Sensores (12)</td><td>Pressão hidráulica, pressão e temperatura do refrigerante, pressão do ar, temperatura do óleo, temperatura do rolamento, vibração do fuso e da ferramenta, rotação, tensão, torque e força de corte</td></tr>
+<tr><td>Resultado</td><td>Coluna "Downtime": <em>Machine_Failure</em> (falhou) ou <em>No_Machine_Failure</em> (não falhou). São 1.265 falhas e 1.235 registros sem falha.</td></tr>
+<tr><td>Campos vazios</td><td class="num">143 valores em branco</td></tr>
+</table></div>
+<div class="tbl"><table>
+<tr><th>O que NÃO tem</th><th>Por que faz falta</th></tr>
+<tr><td>Hora de cada registro</td><td>Não dá para saber a ordem dentro do dia nem quanto tempo passou entre um registro e outro</td></tr>
+<tr><td>Duração de cada parada</td><td>Sem ela, o tempo parado precisa ser estimado (premissa P2)</td></tr>
+<tr><td>Turnos de trabalho</td><td>Sem eles, não se sabe quantas horas a máquina deveria trabalhar (premissa P3)</td></tr>
+<tr><td>Produção e peças boas/ruins</td><td>Sem elas, não dá para medir o desempenho e a qualidade do OEE</td></tr>
+<tr><td>Custos da fábrica</td><td>Salário, custo do conserto e lucro por peça não existem; o custo vem de fonte externa (premissa P4)</td></tr>
+</table></div>
+</section>
+
+<section>
+<h2>3. As fontes e o quanto confiar em cada uma</h2>
+<div class="tbl"><table>
+<tr><th>Número</th><th>Fonte</th><th>Conferência</th></tr>
+<tr><td><b>Planilha das máquinas</b></td><td><a href="https://www.kaggle.com/datasets/srinivasanusuri/optimization-of-machine-downtime">Kaggle, "Optimization of machine downtime"</a>, de Srinivas Anusuri. Licença CC0 (uso livre).</td><td><span class="tag t-ok">Conferido</span><br>Licença lida no Kaggle; tamanho do arquivo igual ao publicado (373.462 bytes).</td></tr>
+<tr><td><b>R$ 189,78 por hora</b></td><td><a href="https://www.usinagem-brasil.com.br/59239-sai-nova-pesquisa-sobre-preco-da-hora-maquina-em-usinagem/">Pesquisa GRV Software 2024</a>, 480 empresas brasileiras, publicada pela revista Usinagem Brasil em 28/08/2024. Preço médio da hora de um centro de usinagem de 3 eixos na Grande São Paulo.</td><td><span class="tag t-warn">Parcial</span><br>Li a matéria da revista, não o relatório da GRV. A GRV vende software para usinagem.</td></tr>
+<tr><td><b>1,08 h por parada</b></td><td><a href="https://assets.new.siemens.com/siemens/assets/api/uuid:1b43afb5-2d07-47f7-9eb7-893fe7d0bc59/TCOD-2024_original.pdf">Siemens, The True Cost of Downtime 2024</a>: uma fábrica grande tem 25 paradas e perde 27 horas por mês. 27 ÷ 25 = 1,08.</td><td><span class="tag t-ok">Conferido</span><br>Lido no PDF original. Pesquisa com 181 profissionais de grandes indústrias, 2019–2023.</td></tr>
+<tr><td><b>50% menos paradas</b></td><td>Mesmo relatório da Siemens, sobre manutenção preditiva.</td><td><span class="tag t-warn">Parcial</span><br>Lido no PDF, mas o número vem de clientes do próprio software da Siemens.</td></tr>
+<tr><td><b>OEE de 85% e de 55–60%</b></td><td>Seiichi Nakajima, criador do TPM (livro de 1984), citado pela <a href="https://evocon.com/kb/oee-targets">Evocon</a>, com dados de 3.500 máquinas em 50 países.</td><td><span class="tag t-warn">Parcial</span><br>Li a Evocon, não o livro.</td></tr>
+</table></div>
+</section>
+
+<section>
+<h2>4. As premissas (o que foi assumido sem prova)</h2>
+<p>Premissa é um "vamos considerar que…". Toda conta abaixo depende destas cinco:</p>
+<ol class="prem">
+  <li><b>Cada registro "falhou" é uma parada da máquina.</b> O dataset não explica o que cada linha significa.</li>
+  <li><b>Cada parada dura 1,08 hora.</b> É a média da Siemens para fábricas grandes, não um dado destas máquinas.</li>
+  <li><b>A máquina poderia trabalhar 24 horas por dia.</b> O dataset não informa os turnos.</li>
+  <li><b>Uma hora parada custa R$ 189,78.</b> É quanto a fábrica pagaria para outra empresa fazer essa hora de usinagem (custo de reposição). Custos indiretos, como linha parada, multas e atrasos, ficam fora. Por isso o valor é um mínimo.</li>
+  <li><b>Os 143 campos vazios recebem o valor do meio (mediana) de cada sensor.</b> Isso só afeta o cálculo de risco.</li>
+</ol>
+</section>
+
+<section>
+<h2>5. Como cada número foi calculado</h2>
+
+<h3>5.1 Custo das paradas</h3>
+<p>Ideia: quantas vezes parou × quanto tempo ficou parada × quanto custa cada hora.</p>
+<div class="calc">
+1.265 falhas × 1,08 h <span class="c">(P2)</span> = 1.366 horas paradas<br>
+1.366 h × R$ 189,78 <span class="c">(P4)</span> = <span class="r">R$ 259.277 no período</span><br>
+222 dias ÷ 30,44 dias por mês = 7,29 meses<br>
+R$ 259.277 ÷ 7,29 = <span class="r">R$ 35.551 por mês</span>
+</div>
+<div class="tbl"><table>
+<tr><th>Máquina</th><th>Falhas</th><th>Horas paradas</th><th>Custo no período</th></tr>
+<tr><td>Makino-L1</td><td class="n">454</td><td class="n">490,3 h</td><td class="n">R$ 93.053</td></tr>
+<tr><td>Makino-L2</td><td class="n">396</td><td class="n">427,7 h</td><td class="n">R$ 81.165</td></tr>
+<tr><td>Makino-L3</td><td class="n">415</td><td class="n">448,2 h</td><td class="n">R$ 85.059</td></tr>
+</table></div>
+
+<h3>5.2 Disponibilidade (a parte do OEE que dá para medir)</h3>
+<p>O OEE é a "nota de eficiência" de uma máquina. Ele multiplica três coisas: <b>disponibilidade</b> (quanto tempo ficou ligada), <b>desempenho</b> (se rodou na velocidade certa) e <b>qualidade</b> (quantas peças saíram boas). Com estes dados só dá para medir a primeira.</p>
+<div class="calc">
+<span class="c">Exemplo da L1:</span><br>
+141 dias com registro × 24 h <span class="c">(P3)</span> = 3.384 horas possíveis<br>
+1 − (490,3 h paradas ÷ 3.384 h) = <span class="r">85,5%</span>
+</div>
+<div class="tbl"><table>
+<tr><th>Máquina</th><th>Dias com registro</th><th>Horas possíveis</th><th>Disponibilidade</th></tr>
+<tr><td>Makino-L1</td><td class="n">141</td><td class="n">3.384 h</td><td class="n">85,5%</td></tr>
+<tr><td>Makino-L2</td><td class="n">139</td><td class="n">3.336 h</td><td class="n">87,2%</td></tr>
+<tr><td>Makino-L3</td><td class="n">136</td><td class="n">3.264 h</td><td class="n">86,3%</td></tr>
+</table></div>
+<p>Para comparar: o OEE completo considerado "classe mundial" é 85%, com 90% de disponibilidade. A maioria das fábricas fica entre 55% e 60%. Como aqui temos só um dos três pilares, a comparação é limitada.</p>
+<p><b>Plano de coleta.</b> Para o OEE completo, a fábrica precisaria começar a registrar o início e o fim de cada parada e as horas planejadas por turno; o tempo de ciclo e as peças produzidas por hora (contador do CNC); e as peças boas e refugadas (inspeção de qualidade).</p>
+
+<h3>5.3 Risco em R$</h3>
+<p>Ideia: <b>chance de a máquina falhar × custo de uma falha</b>. A máquina com maior risco em reais é a primeira da fila.</p>
+<p><b>Como a chance é calculada.</b> Um programa simples (chamado regressão logística) olhou os 12 sensores de cada registro e aprendeu quais combinações aparecem quando a máquina falha. Funciona como um mecânico experiente que, de tanto ver, reconhece o "barulho" de uma máquina prestes a parar. Para testar, o programa aprendeu só com os 70% de registros mais antigos e foi testado nos 30% mais recentes, como se fossem dias futuros. Nesses registros, ele acertou se houve falha ou não em <b>89,9%</b> dos casos. Chutar sempre a mesma resposta acertaria 51,5%. Numa segunda prova, os dados chegaram semana a semana e o programa foi testado em cada semana nova antes de reaprender: acertou 86,6%, contra 58,9% do chute.</p>
+<div class="calc">
+<span class="c">Exemplo da L3:</span><br>
+Custo de uma falha: 1,08 h × R$ 189,78 = R$ 204,96<br>
+Registros por dia: 818 ÷ 136 dias = 6,0<br>
+Chance média de falha nos 30 registros mais recentes = 53,3%<br>
+0,533 × 6,0 × R$ 204,96 = <span class="r">R$ 658 por dia</span>
+</div>
+<div class="tbl"><table>
+<tr><th>Ordem</th><th>Máquina</th><th>Chance recente de falha</th><th>Registros por dia</th><th>Risco por dia</th></tr>
+<tr><td>1º</td><td>Makino-L3</td><td class="n">53,3%</td><td class="n">6,0</td><td class="n">R$ 658</td></tr>
+<tr><td>2º</td><td>Makino-L2</td><td class="n">52,1%</td><td class="n">5,8</td><td class="n">R$ 621</td></tr>
+<tr><td>3º</td><td>Makino-L1</td><td class="n">41,9%</td><td class="n">6,2</td><td class="n">R$ 533</td></tr>
+</table></div>
+
+<p><b>Quais sensores mais pesam.</b> O programa também mostra o "peso" de cada sensor na chance de falha. Quanto maior a barra, mais o sensor ajuda a prever a falha.</p>
+<div class="bars" role="img" aria-label="Peso de cada sensor na chance de falha">
+  <div class="bar"><span>Pressão hidráulica</span><span class="track"><span class="fill neg" style="width:60%"></span><span class="num">−1,38</span></span></div>
+  <div class="bar"><span>Força de corte</span><span class="track"><span class="fill" style="width:39.8%"></span><span class="num">+0,92</span></span></div>
+  <div class="bar"><span>Torque</span><span class="track"><span class="fill neg" style="width:38.6%"></span><span class="num">−0,89</span></span></div>
+  <div class="bar"><span>Rotação do fuso</span><span class="track"><span class="fill" style="width:15.7%"></span><span class="num">+0,36</span></span></div>
+  <div class="bar"><span>Temperatura do refrigerante</span><span class="track"><span class="fill" style="width:10.7%"></span><span class="num">+0,25</span></span></div>
+  <div class="bar"><span>Pressão do refrigerante</span><span class="track"><span class="fill" style="width:9%"></span><span class="num">+0,21</span></span></div>
+  <div class="bar"><span>Outros 6 sensores</span><span class="track"><span class="fill" style="width:2.2%"></span><span class="num">até ±0,05</span></span></div>
+</div>
+<p class="legend">Verde: valor alto aumenta a chance de falha. Vermelho: valor baixo aumenta a chance de falha.</p>
+<div class="tbl"><table>
+<tr><th>Sensor</th><th>Média nas falhas</th><th>Média normal</th><th>O que acontece</th></tr>
+<tr><td>Pressão hidráulica (bar)</td><td class="n">84,8</td><td class="n">118,6</td><td>Cai bastante quando a máquina falha</td></tr>
+<tr><td>Força de corte (kN)</td><td class="n">3,1</td><td class="n">2,5</td><td>Sobe quando a máquina falha</td></tr>
+<tr><td>Torque (Nm)</td><td class="n">22,8</td><td class="n">27,8</td><td>Cai quando a máquina falha</td></tr>
+</table></div>
+
+<h3>5.4 Preditiva × corretiva</h3>
+<p><b>Corretiva</b> é esperar quebrar e consertar. <b>Preditiva</b> é usar os sensores para consertar antes de quebrar.</p>
+<div class="calc">
+Custo de esperar quebrar = <span class="r">R$ 35.551 por mês</span><br>
+Com preditiva, as paradas caem 50% <span class="c">(Siemens)</span><br>
+R$ 35.551 × 50% = <span class="r">R$ 17.776 de economia por mês</span>
+</div>
+<p>Leitura para o gestor: um programa de manutenção preditiva que custe até R$ 17.776 por mês já se paga.</p>
+
+<h3>5.5 Plano de ação 5W2H</h3>
+<p>O 5W2H responde sete perguntas para cada ação: o quê, por quê, onde, quando, quem, como e quanto. As três ações vêm dos três sensores que mais pesam no risco, em ordem.</p>
+<div class="tbl"><table>
+<tr><th>O quê</th><th>Por quê</th><th>Quando</th><th>Quem</th><th>Como</th></tr>
+<tr><td>Revisar bomba, filtros e vazamentos do sistema hidráulico</td><td>Nas falhas, a pressão hidráulica fica em 84,8, contra 118,6 no normal</td><td>Semana 1</td><td>Técnico de manutenção hidráulica</td><td>Inspeção semanal e alerta se a pressão ficar abaixo de 101,7</td></tr>
+<tr><td>Trocar ou afiar a ferramenta e revisar o avanço de corte</td><td>Nas falhas, a força de corte fica em 3,1, contra 2,5 no normal</td><td>Semana 2</td><td>Ferramentaria</td><td>Inspeção semanal e alerta se a força ficar acima de 2,8</td></tr>
+<tr><td>Conferir fixação da peça e desgaste da ferramenta</td><td>Nas falhas, o torque fica em 22,8, contra 27,8 no normal</td><td>Semana 3</td><td>Operador e ferramentaria</td><td>Inspeção semanal e alerta se o torque ficar abaixo de 25,3</td></tr>
+</table></div>
+<div class="calc">
+<span class="c">Onde:</span> nas 3 máquinas, começando pela L3 (maior risco em R$)<br>
+<span class="c">Limite do alerta:</span> o meio entre as duas médias. Ex.: (84,8 + 118,6) ÷ 2 = 101,7<br>
+<span class="c">Quanto:</span> R$ 17.776 ÷ 3 ações = <span class="r">até R$ 5.925 por mês cada</span> (teto que se paga com a economia)
+</div>
+</section>
+
+<section>
+<h2>6. O que não foi possível verificar</h2>
+<div class="tbl"><table>
+<tr><th>Ponto</th><th>Por que importa</th><th>Impacto</th></tr>
+<tr><td>Se o dataset é real ou montado para estudo</td><td>Metade dos registros é falha, muito acima de uma fábrica real</td><td><span class="tag t-bad">Alto</span></td></tr>
+<tr><td>O que cada linha da planilha representa</td><td>Se "falhou" não for uma parada, o custo inteiro muda (P1)</td><td><span class="tag t-bad">Alto</span></td></tr>
+<tr><td>A duração real das paradas</td><td>O 1,08 h é a média de fábricas grandes, não destas máquinas (P2)</td><td><span class="tag t-bad">Alto</span></td></tr>
+<tr><td>Se R$ 189,78 serve para estas máquinas</td><td>O preço é de máquina de 3 eixos, em São Paulo, em 2024. As Makino podem ser maiores, os dados são de 2021–22 e a inflação não foi corrigida.</td><td><span class="tag t-warn">Médio</span></td></tr>
+<tr><td>O relatório original da GRV</td><td>Só a matéria da revista foi lida; a GRV tem interesse comercial</td><td><span class="tag t-warn">Médio</span></td></tr>
+<tr><td>Os 50% da Siemens</td><td>Vêm de clientes do próprio software da Siemens</td><td><span class="tag t-warn">Médio</span></td></tr>
+<tr><td>O teste do programa de risco</td><td>Já é feito com dados mais recentes que os do treino, mas as últimas semanas do dataset têm poucos registros (de 1 a 34 por semana), então o acerto semana a semana varia muito. O número usado soma as semanas recentes até chegar a pelo menos 100 registros.</td><td><span class="tag t-ok">Baixo</span></td></tr>
+<tr><td>A ordem dos registros dentro do dia</td><td>Sem hora, "mais recente" no mesmo dia segue a ordem do arquivo</td><td><span class="tag t-ok">Baixo</span></td></tr>
+<tr><td>As ações do 5W2H</td><td>São sugestões de manutenção ligadas a cada sensor, não vêm de fonte nem do dataset</td><td><span class="tag t-warn">Médio</span></td></tr>
+<tr><td>Os limites dos alertas</td><td>"O meio entre as médias" é uma regra simples, não testada</td><td><span class="tag t-ok">Baixo</span></td></tr>
+<tr><td>O "quanto" do 5W2H</td><td>É um teto que se paga com a economia, não um orçamento</td><td><span class="tag t-ok">Baixo</span></td></tr>
+<tr><td>O livro do Nakajima</td><td>Só a citação da Evocon foi lida</td><td><span class="tag t-ok">Baixo</span></td></tr>
+<tr><td>"Custo de reposição" como custo direto</td><td>A conta de livro usa salário, conserto e lucro por peça, que não temos. A reposição é uma aproximação.</td><td><span class="tag t-warn">Médio</span></td></tr>
+</table></div>
+<p>O que <b>foi</b> verificado: as contas. O programa confere os próprios resultados ao final (total de registros, número de máquinas, se o programa de risco supera o chute) e, executado duas vezes, gerou exatamente os mesmos arquivos.</p>
+</section>
+
+<section>
+<h2>7. Perguntas que a banca pode fazer</h2>
+<div class="qa">
+  <div><b>"Esse custo é real?"</b>É uma estimativa mínima, com fonte. Sem os dados internos da fábrica, usamos o custo de reposição: quanto custaria terceirizar a hora perdida. Com os números reais da empresa, basta trocar um valor e tudo é recalculado.</div>
+  <div><b>"Por que não usaram o custo da Siemens, de milhões por hora?"</b>Porque é o custo de uma fábrica inteira parada, que é indireto e depende de cada empresa. Ficamos com o custo direto, que dá para defender.</div>
+  <div><b>"O programa de risco é confiável?"</b>Ele acerta 89,9% nos registros mais recentes, que não viu no treino, contra 51,5% do chute. Mas ele mostra associação, não causa: indica onde olhar primeiro, e o técnico confirma.</div>
+  <div><b>"Por que só a disponibilidade no OEE?"</b>Porque o dataset não traz produção nem peças boas. Em vez de inventar, mostramos o plano de coleta: o que a fábrica precisa medir para ter o OEE completo.</div>
+  <div><b>"50% de falhas não é muito?"</b>É. Por isso dizemos que os valores mostram o método. O que importa é o caminho: dado do sensor → risco → dinheiro → ação.</div>
+</div>
+</section>
+
+<section>
+<h2>8. Glossário</h2>
+<dl class="gloss">
+  <dt>OEE</dt><dd>Nota de eficiência de uma máquina, de 0 a 100%: disponibilidade × desempenho × qualidade.</dd>
+  <dt>Disponibilidade</dt><dd>Parte do tempo em que a máquina esteve funcionando.</dd>
+  <dt>Premissa</dt><dd>Algo que se considera verdadeiro para poder fazer a conta, mesmo sem prova.</dd>
+  <dt>Custo de reposição</dt><dd>Quanto custaria comprar fora o que se perdeu. Aqui: terceirizar a hora de usinagem.</dd>
+  <dt>Custo direto</dt><dd>Custo ligado diretamente à parada: operador sem trabalhar, conserto e produção perdida.</dd>
+  <dt>Custo indireto</dt><dd>Efeitos em cadeia: linha parada, multas, entregas atrasadas.</dd>
+  <dt>Manutenção corretiva</dt><dd>Esperar quebrar e consertar.</dd>
+  <dt>Manutenção preditiva</dt><dd>Usar os sensores para prever a falha e consertar antes.</dd>
+  <dt>Regressão logística</dt><dd>Programa simples que aprende com exemplos e devolve uma chance entre 0% e 100%.</dd>
+  <dt>Mediana</dt><dd>O valor do meio quando os números são postos em ordem.</dd>
+  <dt>5W2H</dt><dd>Plano de ação que responde: o quê, por quê, onde, quando, quem, como e quanto.</dd>
+</dl>
+</section>
+
+<footer>
+  Os arquivos do painel ficam na pasta <span class="num">docs/painel-gestor/</span>, na branch <span class="num">feat/painel-gestor</span>, que entra no repositório do grupo depois da revisão do PR. Todas as premissas estão no topo do programa <span class="num">painel_gestor.py</span>: trocar um valor e rodar de novo atualiza todos os resultados.
+</footer>
+</div>
+
+</html>

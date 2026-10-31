@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guia do Site Generativo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: relatório de uma coluna, como um laudo técnico de manutenção; contas em blocos de "ficha" com fonte mono */
+:root {
+  --bg: #f6f7f5;
+  --paper: #ffffff;
+  --ink: #1d2420;
+  --muted: #5d6862;
+  --line: #d9dfdb;
+  --accent: #2e6a4a;
+  --accent-soft: #e3efe8;
+  --ok: #2e6a4a;  --ok-bg: #e3efe8;
+  --warn: #8a5a12; --warn-bg: #f7ecd6;
+  --bad: #9b3b2c;  --bad-bg: #f6e1dc;
+  --bar: #2e6a4a; --bar-neg: #b5523b;
+  --f-display: "Archivo", "Arial Narrow", Arial, sans-serif;
+  --f-body: "Public Sans", "Segoe UI", Arial, sans-serif;
+  --f-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141816; --paper: #1b201d; --ink: #e6ebe7; --muted: #9aa69f; --line: #2f3833;
+  --accent: #7fc79f; --accent-soft: #1f3328;
+  --ok: #7fc79f; --ok-bg: #1f3328; --warn: #e8bd6e; --warn-bg: #352b17; --bad: #ef9886; --bad-bg: #3a221d;
+  --bar: #6fb98f; --bar-neg: #e0846f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141816; --paper: #1b201d; --ink: #e6ebe7; --muted: #9aa69f; --line: #2f3833;
+  --accent: #7fc79f; --accent-soft: #1f3328;
+  --ok: #7fc79f; --ok-bg: #1f3328; --warn: #e8bd6e; --warn-bg: #352b17; --bad: #ef9886; --bad-bg: #3a221d;
+  --bar: #6fb98f; --bar-neg: #e0846f; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 40px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 26px; font-weight: 700; margin-top: 56px; padding-top: 20px; border-top: 2px solid var(--ink); }
+h3 { font-size: 19px; font-weight: 700; margin-top: 28px; }
+p { margin: 12px 0; max-width: 68ch; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.lead { font-size: 19px; color: var(--muted); max-width: 60ch; }
+.meta { font-size: 14px; color: var(--muted); }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 28px; }
+.kpi { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.kpi b { font-family: var(--f-mono); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 13px; color: var(--muted); line-height: 1.4; }
+
+.calc { background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 4px; padding: 14px 18px; margin: 14px 0; font-family: var(--f-mono); font-size: 14px; line-height: 1.9; overflow-x: auto; }
+.calc .r { color: var(--accent); font-weight: 600; }
+.calc .c { color: var(--muted); }
+
+.tbl { overflow-x: auto; margin: 14px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--f-display); font-weight: 700; font-size: 13px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted); background: var(--accent-soft); }
+tr:last-child td { border-bottom: 0; }
+td.n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+.tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.t-ok { color: var(--ok); background: var(--ok-bg); }
+.t-warn { color: var(--warn); background: var(--warn-bg); }
+.t-bad { color: var(--bad); background: var(--bad-bg); }
+
+.note { background: var(--warn-bg); color: var(--ink); border-radius: 6px; padding: 14px 18px; margin: 18px 0; }
+.note strong { color: var(--warn); }
+.say { background: var(--accent-soft); border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-style: italic; }
+
+.prem { counter-reset: p; list-style: none; padding: 0; margin: 14px 0; display: grid; gap: 10px; }
+.prem li { counter-increment: p; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px 12px 58px; position: relative; }
+.prem li::before { content: "P" counter(p); position: absolute; left: 16px; top: 12px; font-family: var(--f-mono); font-weight: 600; color: var(--accent); }
+
+.bars { display: grid; gap: 8px; margin: 16px 0; }
+.bar { display: grid; grid-template-columns: minmax(120px, 230px) 1fr; gap: 12px; align-items: center; font-size: 14px; }
+.bar > span:first-child { text-align: right; color: var(--muted); }
+.track { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fill { height: 18px; border-radius: 3px; background: var(--bar); flex: none; }
+.fill.neg { background: var(--bar-neg); }
+.track .num { font-size: 13px; white-space: nowrap; }
+.legend { font-size: 13px; color: var(--muted); }
+
+dl.gloss { display: grid; grid-template-columns: minmax(130px, 210px) 1fr; gap: 10px 20px; margin: 16px 0; }
+dl.gloss dt { font-weight: 600; }
+dl.gloss dd { margin: 0; color: var(--ink); }
+.qa { margin: 16px 0; display: grid; gap: 14px; }
+.qa div { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 14px 18px; }
+.qa b { display: block; font-family: var(--f-display); margin-bottom: 4px; }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+
+@media (max-width: 560px) {
+  .bar { grid-template-columns: 1fr; gap: 2px; }
+  .bar > span:first-child { text-align: left; }
+  dl.gloss { grid-template-columns: 1fr; gap: 2px 0; }
+  dl.gloss dd { margin-bottom: 10px; }
+}
+</style>
+
+<style>
+.toc { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; columns: 2 260px; column-gap: 32px; }
+.toc a { display: block; padding: 3px 0; text-decoration: none; }
+.item { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 10px 0; }
+.item-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+.item-top b { font-family: var(--f-display); font-size: 17px; }
+.idt { font-size: 12px; color: var(--muted); }
+.kv2 { display: grid; grid-template-columns: minmax(110px, 150px) 1fr; gap: 6px 14px; margin: 0; font-size: 14.5px; }
+.kv2 dt { color: var(--muted); font-weight: 600; font-size: 13px; }
+.kv2 dd { margin: 0; min-width: 0; }
+.kv2 code, pre.code { font-family: var(--f-mono); font-size: 12.5px; background: var(--accent-soft); border-radius: 4px; padding: 6px 8px; display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+pre.code { margin: 12px 0; padding: 12px 14px; overflow-x: auto; }
+@media (max-width: 560px) { .kv2 { grid-template-columns: 1fr; gap: 2px; } .kv2 dd { margin-bottom: 8px; } }
+.box2 { background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 6px; padding: 12px 16px; margin: 14px 0; }
+ol.steps, ul.clean { padding-left: 20px; display: grid; gap: 6px; }
+</style>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Smart Talents · Grupo 4 · Tema 1 (OEE) · para o Maicon e o grupo</div>
+  <h1 style="margin-top:10px">Guia do site generativo</h1>
+  <p class="lead">Como o site funciona, de onde vem e como é calculada cada informação, por que escolhemos cada premissa, e uma proposta de como construir isso no TelemetryOS.</p>
+  <p class="meta">Fernando · 31/10/2026 · Simulador: <a href="simulador.html">abrir o simulador</a> · Memória de cálculo: <a href="memoria-de-calculo.html">abrir</a> · Excalidraw: arquivo "Site generativo - cascata"</p>
+</header>
+
+<nav class="toc" aria-label="Sumário">
+<a href="#ideia">1. A ideia em 1 minuto</a><a href="#fluxo">2. O caminho do dado</a><a href="#dados">3. Os dados e a falha real</a>
+<a href="#premissas">4. As premissas e por que escolhemos cada uma</a><a href="#catalogo">5. As 31 informações</a><a href="#cargos">6. Cargos, permissões e tarefas</a>
+<a href="#paginas">7. Como o site monta as páginas</a><a href="#copiloto">8. O copiloto sem alucinação</a><a href="#construir">9. Como construir no TelemetryOS</a>
+<a href="#testes">10. Testes que o site precisa passar</a><a href="#limites">11. Limites e próximos passos</a><a href="#glossario">12. Glossário</a>
+</nav>
+
+<section id="ideia"><h2>1. A ideia em 1 minuto</h2>
+<p>O site não tem um painel fixo. Ele <b>monta a tela de cada pessoa</b> com as informações que ela recebeu. Nós entregamos o cardápio: <b>31 informações em 8 pacotes</b>, todas calculadas a partir dos dados das máquinas. A <b>própria empresa</b> decide quem vê o quê, com <b>cargos</b> parecidos com os do Discord, organizados em árvore por setor: o dono cria os setores, e cada chefe repassa para os de baixo informações, máquinas e tarefas, sempre só o que tem, até o último nível.</p>
+<div class="kpis">
+  <div class="kpi"><b>31</b><span>informações calculadas, cada uma com origem, conta e porquê</span></div>
+  <div class="kpi"><b>8 pacotes</b><span>Financeiro, Operação, Previsão, Manutenção, Processo, Suprimentos, Segurança, Gestão de ações</span></div>
+  <div class="kpi"><b>Cargos em árvore</b><span>cada chefe repassa para baixo só o que tem, até o último nível</span></div>
+  <div class="kpi"><b>A IA lê</b><span>o copiloto só repete números já calculados e liberados</span></div>
+</div>
+<p>Por que isso resolve o tema: a pergunta do tema é "onde perdemos disponibilidade, desempenho e qualidade?" e a do professor é "qual máquina vai parar?". O site responde as duas e ainda leva a resposta para quem decide, em reais e com um plano de ação.</p>
+</section>
+
+<section id="fluxo"><h2>2. O caminho do dado</h2>
+<ol class="steps">
+<li><b>Dados chegam:</b> o app já recebe CSV e webhook. Cada lote é guardado sem duplicar (a mesma leitura reenviada não entra de novo).</li>
+<li><b>Limpeza e falha real:</b> sensores impossíveis viram vazio, e cada falha é classificada como confirmada, duvidosa ou erro de dado (seção 3).</li>
+<li><b>Cálculos fixos:</b> um programa testado calcula as 31 informações por máquina. O modelo de risco reaprende a cada 7 dias de dados novos.</li>
+<li><b>Pacotes:</b> as informações são agrupadas em 8 pacotes.</li>
+<li><b>Cargos:</b> a empresa diz, por cargo, quais informações e quais máquinas cada pessoa vê.</li>
+<li><b>Site gerado:</b> o menu, as páginas, os gráficos, os alertas e o copiloto são montados só com o que a pessoa recebeu.</li>
+</ol>
+<div class="box2"><b>Regra de ouro:</b> todo número sai do passo 3. Nenhuma tela e nenhuma IA calcula nada por conta própria.</div>
+</section>
+
+<section id="dados"><h2>3. Os dados e a falha real</h2>
+<p><b>Dataset:</b> "Optimization of machine downtime" (Kaggle, Srinivas Anusuri, licença CC0). 2.500 registros de 3 centros de usinagem Makino, de 24/11/2021 a 03/07/2022. Cada máquina é uma linha de montagem própria (Shopfloor-L1, L2, L3).</p>
+<div class="tbl"><table>
+<tr><th>Colunas</th><th>Uso</th></tr>
+<tr><td>Date, Machine_ID, Assembly_Line_No</td><td>Quando, qual máquina, qual linha</td></tr>
+<tr><td>12 sensores: pressão hidráulica, pressão e temperatura do refrigerante, pressão do ar, temperatura do óleo, temperatura do rolamento, vibração do fuso e da ferramenta, rotação, tensão, torque, força de corte</td><td>Modelo de risco, alertas, causas por área</td></tr>
+<tr><td>Downtime (Machine_Failure / No_Machine_Failure)</td><td>O que o modelo aprende a prever e a base de todas as contas de parada</td></tr>
+</table></div>
+<h3>O que está sujo</h3>
+<ul class="clean">
+<li>143 campos vazios; valores impossíveis (pressão negativa, rotação e torque iguais a zero).</li>
+<li>Sem hora: as linhas do mesmo dia estão fora de ordem no arquivo.</li>
+<li>Cerca de 50% de falhas, muito acima de uma fábrica real. Parece um dataset feito para estudo.</li>
+</ul>
+<h3>Como separamos a falha real</h3>
+<div class="tbl"><table>
+<tr><th>Tipo</th><th>Regra</th><th>Quantas</th></tr>
+<tr><td><span class="tag t-ok">Confirmada</span></td><td>Marcada como falha e com pelo menos um sensor fora do normal (fora da faixa de 1% a 99% dos registros sem falha) ou o modelo reconhece a falha</td><td class="n">1.186</td></tr>
+<tr><td><span class="tag t-warn">Duvidosa</span></td><td>Marcada como falha, mas nenhum sensor mostra sinal</td><td class="n">68</td></tr>
+<tr><td><span class="tag t-bad">Erro de dado</span></td><td>Valor impossível (zero ou negativo) ou 2 ou mais sensores vazios</td><td class="n">11</td></tr>
+</table></div>
+<h3>Por que custo e disponibilidade aparecem como faixa</h3>
+<p>Sem a hora, não dá para saber se 12 falhas da mesma máquina no mesmo dia são 12 paradas ou 1 parada anotada 12 vezes. Então mostramos as duas pontas:</p>
+<ul class="clean"><li><b>Teto:</b> cada registro de falha é uma parada (1.265 paradas).</li><li><b>Piso:</b> no máximo uma parada por dia por máquina (354 paradas).</li></ul>
+<p>Quando a fábrica enviar início e fim de cada parada, a faixa vira um número só.</p>
+</section>
+
+<section id="premissas"><h2>4. As premissas e por que escolhemos cada uma</h2>
+<div class="tbl"><table>
+<tr><th>Premissa</th><th>Valor</th><th>Fonte</th><th>Por que esta e não outra</th></tr>
+<tr><td>Custo de uma hora parada</td><td class="n">R$ 189,78</td><td>Preço médio da hora de centro de usinagem 3 eixos na Grande São Paulo. Pesquisa GRV Software com 480 empresas, publicada pela Usinagem Brasil em 28/08/2024.</td><td>É o <b>custo de reposição</b>: quanto a fábrica pagaria para terceirizar a hora perdida. Está em reais e é de 2024. Descartamos o número da Siemens (US$ 150 mil por hora) porque é de uma fábrica inteira parada, o que daria um valor absurdo para 3 máquinas. Custos indiretos (linha parada, multas) ficam de fora, então o valor é um mínimo.</td></tr>
+<tr><td>Duração média de uma parada</td><td class="n">1,08 h</td><td>Siemens, The True Cost of Downtime 2024: 27 horas em 25 paradas por fábrica por mês.</td><td>O dataset não tem a duração. É o único número público com fonte de pesquisa (181 profissionais de grandes indústrias).</td></tr>
+<tr><td>Redução com manutenção preditiva</td><td class="n">50%</td><td>Mesmo relatório da Siemens.</td><td>Única fonte encontrada com número. Atenção: a Siemens vende software de manutenção preditiva.</td></tr>
+<tr><td>Horas disponíveis por dia</td><td class="n">24 h</td><td>Convenção do grupo.</td><td>O dataset não informa turnos. Usamos os dias em que a máquina teve registro.</td></tr>
+<tr><td>Meta de disponibilidade</td><td class="n">90%</td><td>Nakajima (TPM): OEE de classe mundial de 85% = 90% disponibilidade × 95% desempenho × 99,9% qualidade (citado pela Evocon).</td><td>É a referência clássica do tema OEE.</td></tr>
+<tr><td>Área de cada falha</td><td>Sensor → área</td><td>Premissa do grupo.</td><td>O dataset não diz a causa. Cada falha vai para a área (mecânica, elétrica, automação ou operacional) do sensor que mais pesou nela. A causa real deve vir das ordens de manutenção do SAP.</td></tr>
+<tr><td>Limite dos alertas</td><td>Meio entre as médias</td><td>Premissa do grupo.</td><td>Ex.: pressão hidráulica 101,7 bar = (84,8 nas falhas + 118,6 no normal) ÷ 2. É simples de explicar; o ideal é calibrar com a fábrica.</td></tr>
+</table></div>
+<p class="meta">Todas as premissas ficam num arquivo de configuração. Trocar um valor (por exemplo, o custo real da hora que a empresa informar) recalcula tudo.</p>
+<h3>O modelo de risco</h3>
+<p>Regressão logística com os 12 sensores (padronizados; vazios preenchidos com a mediana). Primeiro teste: aprende com os 70% de registros mais antigos e é testado nos 30% mais recentes: <b>89,9% de acerto</b>, contra 51,5% de quem chuta sempre a mesma resposta. Em produção, antes de cada retreino semanal, o modelo antigo é testado na semana nova: <b>86,6%</b> contra 58,9%. Se o modelo não superar o chute, o site avisa e o ranking não deve ser usado. Ele mostra associação, não causa: indica onde olhar, e o técnico confirma.</p>
+</section>
+
+<section id="catalogo"><h2>5. As 31 informações</h2>
+<p>Cada informação tem um código (o <span class="num">id</span>), que é o que o cargo libera. "Valor hoje" é das 3 máquinas juntas; para um cargo com uma máquina, a mesma conta é feita só com os dados dela.</p>
+<p class="legend"><span class="tag t-ok">Dados atuais</span> sai direto dos dados · <span class="tag t-warn">Com premissa</span> usa uma premissa da seção 4 · <span class="tag t-bad">Dado novo</span> precisa de um dado que a fábrica ainda não envia</p>
+<h3 id="pac-fin">Financeiro <span class="meta">(4 informações)</span></h3>
+<div class="item"><div class="item-top"><b>Custo das paradas por mês</b><span class="tag t-warn">Com premissa</span><span class="num idt">fin_custo</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">R$ 9.949 a R$ 35.551</dd><dt>De onde vem</dt><dd>Coluna &quot;falhou / não falhou&quot;, data e máquina. Premissas: 1,08 h por parada (Siemens 2024) e R$ 189,78 por hora parada (custo de reposição, pesquisa GRV 2024 com 480 empresas).</dd><dt>Conta</dt><dd>Teto = registros de falha × 1,08 h × R$ 189,78 ÷ meses. Piso = dias com falha × 1,08 h × R$ 189,78 ÷ meses.</dd>
+<dt>Com os números</dt><dd><code>Teto: 1.265 × 1,08 h × R$ 189,78 = R$ 259.277 ÷ 7,3 = R$ 35.551. Piso: 354 dias com falha × 1,08 h × R$ 189,78 = R$ 72.557 ÷ 7,3 = R$ 9.949.</code></dd><dt>Por quê</dt><dd>Mostra o tamanho do problema em reais. É faixa porque o dataset não diz se várias falhas no mesmo dia são uma parada só.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Custo por parada</b><span class="tag t-warn">Com premissa</span><span class="num idt">fin_parada</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">R$ 204,96</dd><dt>De onde vem</dt><dd>Só as premissas: 1,08 h por parada (Siemens 2024) e R$ 189,78 por hora (GRV 2024).</dd><dt>Conta</dt><dd>Duração média de uma parada × custo de uma hora parada.</dd>
+<dt>Com os números</dt><dd><code>1,08 h × R$ 189,78 = R$ 204,96</code></dd><dt>Por quê</dt><dd>É a base de todas as contas em reais e o número mais fácil de comunicar.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Risco em R$ por dia</b><span class="tag t-warn">Com premissa</span><span class="num idt">fin_risco</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">R$ 1.811/dia</dd><dt>De onde vem</dt><dd>Chance de falha prevista pelo modelo (12 sensores), número de registros por dia de cada máquina e o custo por parada.</dd><dt>Conta</dt><dd>Chance de falha recente × registros por dia × R$ 204,96.</dd>
+<dt>Com os números</dt><dd><code>Makino-L3: 53,3% × 6,0 registros por dia × R$ 204,96 = R$ 658 por dia.</code></dd><dt>Por quê</dt><dd>Transforma o risco em dinheiro e diz onde agir primeiro.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Economia com manutenção preditiva</b><span class="tag t-warn">Com premissa</span><span class="num idt">fin_economia</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">R$ 4.974 a R$ 17.776</dd><dt>De onde vem</dt><dd>Custo das paradas e a premissa de 50% menos paradas com manutenção preditiva (Siemens 2024).</dd><dt>Conta</dt><dd>Custo das paradas por mês × 50%.</dd>
+<dt>Com os números</dt><dd><code>R$ 9.949 × 50% = R$ 4.974 · R$ 35.551 × 50% = R$ 17.776</code></dd><dt>Por quê</dt><dd>Mostra quanto dá para investir em prevenção e ainda ganhar.</dd></dl></div>
+<h3 id="pac-op">Operação <span class="meta">(7 informações)</span></h3>
+<div class="item"><div class="item-top"><b>Falhas e taxa de falha</b><span class="tag t-ok">Dados atuais</span><span class="num idt">op_falhas</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">1.265 falhas</dd><dt>De onde vem</dt><dd>Coluna &quot;falhou / não falhou&quot; de cada registro.</dd><dt>Conta</dt><dd>Contagem dos registros marcados como falha ÷ total de registros.</dd>
+<dt>Com os números</dt><dd><code>1.265 ÷ 2.500 = 50,6%</code></dd><dt>Por quê</dt><dd>É a medida mais direta de quanto as máquinas param.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Falha real × sujeira</b><span class="tag t-ok">Dados atuais</span><span class="num idt">op_qualidade</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">1.186 confirmadas</dd><dt>De onde vem</dt><dd>Coluna de falha conferida com os 12 sensores e com o modelo de risco.</dd><dt>Conta</dt><dd>Confirmada: marcada como falha e com pelo menos um sensor fora do normal (1% a 99% dos registros sem falha) ou o modelo reconhece. Duvidosa: marcada, mas nenhum sinal. Erro de dado: valor impossível ou 2 ou mais sensores vazios.</dd>
+<dt>Com os números</dt><dd><code>1.186 + 68 + 11 = 1.265 de 1.265 falhas</code></dd><dt>Por quê</dt><dd>O dataset está sujo. Separar as falhas evita decidir em cima de anotação errada.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Horas paradas</b><span class="tag t-warn">Com premissa</span><span class="num idt">op_horas</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">382 a 1.366 h</dd><dt>De onde vem</dt><dd>Falhas e a premissa de 1,08 h por parada (Siemens 2024).</dd><dt>Conta</dt><dd>Teto = registros de falha × 1,08 h. Piso = dias com falha × 1,08 h.</dd>
+<dt>Com os números</dt><dd><code>354 × 1,08 = 382,3 h · 1.265 × 1,08 = 1.366,2 h</code></dd><dt>Por quê</dt><dd>É o tempo em que a linha deixou de produzir.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Disponibilidade (1º pilar do OEE)</b><span class="tag t-warn">Com premissa</span><span class="num idt">op_disp</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">86,3% a 96,2%</dd><dt>De onde vem</dt><dd>Horas paradas e dias com registro de cada máquina. O dataset não tem turnos, então cada dia conta 24 h.</dd><dt>Conta</dt><dd>1 − horas paradas ÷ horas possíveis. Horas possíveis = dias com registro × 24 h.</dd>
+<dt>Com os números</dt><dd><code>1 − 1.366,2 ÷ 9.984 = 86,3% · 1 − 382,3 ÷ 9.984 = 96,2%</code></dd><dt>Por quê</dt><dd>É a parte do OEE que os dados permitem medir. Meta de classe mundial: 90% (Nakajima).</dd></dl></div>
+<div class="item"><div class="item-top"><b>Tendência (abril → maio)</b><span class="tag t-ok">Dados atuais</span><span class="num idt">op_tend</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">53,1% → 43,1%</dd><dt>De onde vem</dt><dd>Falhas e registros de cada mês. Usa os dois últimos meses com pelo menos 50 registros.</dd><dt>Conta</dt><dd>Taxa de falha do mês contra a do mês anterior.</dd>
+<dt>Com os números</dt><dd><code>Abril: 527 registros · maio: 116 registros</code></dd><dt>Por quê</dt><dd>Mostra se a situação está melhorando ou piorando.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Horas disponíveis para produzir</b><span class="tag t-warn">Com premissa</span><span class="num idt">op_cap</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">8.618 a 9.602 h</dd><dt>De onde vem</dt><dd>Horas possíveis e horas paradas.</dd><dt>Conta</dt><dd>Horas possíveis − horas paradas.</dd>
+<dt>Com os números</dt><dd><code>9.984 − 1.366,2 · 9.984 − 382,3</code></dd><dt>Por quê</dt><dd>Ajuda o planejamento a saber quanto dá para produzir.</dd></dl></div>
+<div class="item"><div class="item-top"><b>OEE completo</b><span class="tag t-bad">Dado novo</span><span class="num idt">op_oee</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">Não medido</dd><dt>De onde vem</dt><dd>Precisa de peças produzidas, peças planejadas e peças boas, que o dataset não tem.</dd><dt>Conta</dt><dd>Disponibilidade × desempenho × qualidade.</dd>
+<dt>Com os números</dt><dd><code>Hoje só a disponibilidade é medida.</code></dd><dt>Por quê</dt><dd>É o indicador do tema. Classe mundial: 85%.</dd></dl></div>
+<h3 id="pac-prev">Previsão <span class="meta">(5 informações)</span></h3>
+<div class="item"><div class="item-top"><b>Chance de falha hoje</b><span class="tag t-ok">Dados atuais</span><span class="num idt">prev_chance</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">53,3%</dd><dt>De onde vem</dt><dd>Os 12 sensores. Um modelo (regressão logística) aprende com o histórico quais leituras aparecem antes das falhas.</dd><dt>Conta</dt><dd>Média da chance prevista nos 30 registros mais recentes da máquina.</dd>
+<dt>Com os números</dt><dd><code>O modelo acerta 89,9% em dados que não viu; chutar sempre a mesma resposta acerta 51,5%.</code></dd><dt>Por quê</dt><dd>Responde à pergunta do professor: qual máquina vai parar?</dd></dl></div>
+<div class="item"><div class="item-top"><b>Saúde da máquina (0 a 100)</b><span class="tag t-ok">Dados atuais</span><span class="num idt">prev_saude</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">47 · 48 · 58</dd><dt>De onde vem</dt><dd>Chance de falha recente.</dd><dt>Conta</dt><dd>100 − chance de falha. Abaixo de 50: crítica; de 50 a 70: atenção; acima de 70: boa.</dd>
+<dt>Com os números</dt><dd><code>100 − 53,3 = 47 · 100 − 52,1 = 48 · 100 − 41,9 = 58</code></dd><dt>Por quê</dt><dd>Uma nota fácil de ler, sem precisar entender o modelo.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Próxima falha estimada</b><span class="tag t-ok">Dados atuais</span><span class="num idt">prev_proxima</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">~7,5 h</dd><dt>De onde vem</dt><dd>Chance de falha recente e registros por dia de cada máquina.</dd><dt>Conta</dt><dd>Falhas esperadas por dia = chance × registros por dia. Próxima falha = 24 h ÷ falhas esperadas por dia.</dd>
+<dt>Com os números</dt><dd><code>Makino-L3: 53,3% × 6,0 = 3,21 falhas por dia · 24 ÷ 3,21 = 7,5 h</code></dd><dt>Por quê</dt><dd>Diz quando agir. É uma média, não um horário exato.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Ranking de prioridade</b><span class="tag t-warn">Com premissa</span><span class="num idt">prev_ranking</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">1º L3 · 2º L2 · 3º L1</dd><dt>De onde vem</dt><dd>Risco em R$ por dia de cada máquina.</dd><dt>Conta</dt><dd>Ordena as máquinas do maior para o menor risco em R$.</dd>
+<dt>Com os números</dt><dd><code>R$ 658 (L3) &gt; R$ 621 (L2) &gt; R$ 533 (L1) por dia</code></dd><dt>Por quê</dt><dd>Diz o que atacar primeiro.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Confiabilidade do modelo</b><span class="tag t-ok">Dados atuais</span><span class="num idt">prev_modelo</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">89,9%</dd><dt>De onde vem</dt><dd>Teste do modelo em dados que ele não viu no treino.</dd><dt>Conta</dt><dd>Aprende com os 70% de registros mais antigos e é testado nos 30% mais recentes. Depois, a cada semana nova, é testado antes de reaprender.</dd>
+<dt>Com os números</dt><dd><code>Teste semana a semana: 86,6% contra 58,9% do chute</code></dd><dt>Por quê</dt><dd>Se o modelo não superar o chute, o painel avisa e o ranking não deve ser usado.</dd></dl></div>
+<h3 id="pac-man">Manutenção <span class="meta">(5 informações)</span></h3>
+<div class="item"><div class="item-top"><b>Alertas de sensor</b><span class="tag t-ok">Dados atuais</span><span class="num idt">man_alertas</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">53 de 90</dd><dt>De onde vem</dt><dd>Últimos 30 registros de cada máquina.</dd><dt>Conta</dt><dd>Limite = meio entre a média do sensor nas falhas e a média normal. Pressão hidráulica abaixo de 101,7 bar · força de corte acima de 2,8 kN · torque abaixo de 25,3 Nm.</dd>
+<dt>Com os números</dt><dd><code>Hidráulica: (84,8 + 118,6) ÷ 2 = 101,7 bar</code></dd><dt>Por quê</dt><dd>Avisa antes de quebrar.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Falhas por área</b><span class="tag t-warn">Com premissa</span><span class="num idt">man_areas</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">Mecânica 55%</dd><dt>De onde vem</dt><dd>Pesos do modelo e a ligação de cada sensor a uma área (premissa do grupo). A área real viria das ordens de manutenção do SAP.</dd><dt>Conta</dt><dd>Em cada falha, o sensor que mais puxou a chance de falha define a área.</dd>
+<dt>Com os números</dt><dd><code>699 + 534 + 31 + 1 = 1265 falhas</code></dd><dt>Por quê</dt><dd>Manda o problema para a equipe certa.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Tempo médio entre falhas (MTBF)</b><span class="tag t-warn">Com premissa</span><span class="num idt">man_mtbf</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">7,9 h</dd><dt>De onde vem</dt><dd>Horas possíveis e número de falhas.</dd><dt>Conta</dt><dd>Horas possíveis ÷ falhas.</dd>
+<dt>Com os números</dt><dd><code>9.984 h ÷ 1.265 = 7,9 h</code></dd><dt>Por quê</dt><dd>Mede a confiabilidade da máquina. Quanto maior, melhor.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Reincidência no mesmo dia</b><span class="tag t-ok">Dados atuais</span><span class="num idt">man_reincid</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">202 dias</dd><dt>De onde vem</dt><dd>Falhas por máquina por dia.</dd><dt>Conta</dt><dd>Dias em que a mesma máquina teve 3 ou mais falhas.</dd>
+<dt>Com os números</dt><dd><code>202 de 354 dias com falha</code></dd><dt>Por quê</dt><dd>Pode indicar conserto que não resolveu. Sem a hora, também pode ser a mesma parada anotada várias vezes.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Máquina sem enviar dados</b><span class="tag t-ok">Dados atuais</span><span class="num idt">man_semdados</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">26 dias</dd><dt>De onde vem</dt><dd>Data da última leitura de cada máquina.</dd><dt>Conta</dt><dd>Dias entre a última leitura da máquina e a leitura mais recente da frota. Alerta acima de 7 dias.</dd>
+<dt>Com os números</dt><dd><code>Última leitura de Makino-L3: 07/06/2022 · frota: 03/07/2022</code></dd><dt>Por quê</dt><dd>Sensor desligado ou conexão caída: sem dado, o painel fica cego.</dd></dl></div>
+<h3 id="pac-proc">Processo e ferramenta <span class="meta">(2 informações)</span></h3>
+<div class="item"><div class="item-top"><b>Desgaste da ferramenta</b><span class="tag t-warn">Com premissa</span><span class="num idt">proc_ferr</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">2,5 → 3,1 kN</dd><dt>De onde vem</dt><dd>Força de corte e torque, comparando registros com e sem falha.</dd><dt>Conta</dt><dd>Média nas falhas contra média no funcionamento normal.</dd>
+<dt>Com os números</dt><dd><code>Normal → nas falhas</code></dd><dt>Por quê</dt><dd>Força de corte subindo e torque caindo indicam ferramenta gasta: hora de trocar ou afiar.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Rotação do fuso</b><span class="tag t-ok">Dados atuais</span><span class="num idt">proc_rpm</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">19,2 → 21,3 mil RPM</dd><dt>De onde vem</dt><dd>Sensor de rotação, comparando registros com e sem falha.</dd><dt>Conta</dt><dd>Média nas falhas contra média no funcionamento normal.</dd>
+<dt>Com os números</dt><dd><code>19.200 → 21.319 RPM</code></dd><dt>Por quê</dt><dd>Rotação acima do padrão pode indicar programa CNC mal ajustado.</dd></dl></div>
+<h3 id="pac-sup">Suprimentos <span class="meta">(2 informações)</span></h3>
+<div class="item"><div class="item-top"><b>Peças com mais chance de serem necessárias</b><span class="tag t-warn">Com premissa</span><span class="num idt">sup_pecas</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">Filtro e bomba hidráulica</dd><dt>De onde vem</dt><dd>Alertas de sensor nos últimos 30 registros e a ligação de cada sensor a uma peça (premissa).</dd><dt>Conta</dt><dd>Hidráulica baixa → filtro e bomba hidráulica. Força de corte alta → inserto da ferramenta.</dd>
+<dt>Com os números</dt><dd><code>Quanto mais alertas, maior a chance de precisar da peça</code></dd><dt>Por quê</dt><dd>Comprar antes de faltar evita máquina parada esperando peça.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Estoque de peças críticas</b><span class="tag t-bad">Dado novo</span><span class="num idt">sup_estoque</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">Não medido</dd><dt>De onde vem</dt><dd>Precisa do sistema de estoque da fábrica.</dd><dt>Conta</dt><dd>Peças em estoque contra peças prováveis.</dd>
+<dt>Com os números</dt><dd><code>Dado novo</code></dd><dt>Por quê</dt><dd>Mostra se a peça vai estar lá quando precisar.</dd></dl></div>
+<h3 id="pac-seg">Segurança <span class="meta">(3 informações)</span></h3>
+<div class="item"><div class="item-top"><b>Risco de vazamento hidráulico</b><span class="tag t-warn">Com premissa</span><span class="num idt">seg_hidr</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">465 registros</dd><dt>De onde vem</dt><dd>Sensor de pressão hidráulica.</dd><dt>Conta</dt><dd>Registros com pressão fora da faixa normal (de 70,5 a 169,3 bar, 1% a 99% dos registros sem falha).</dd>
+<dt>Com os números</dt><dd><code>465 de 2.500 registros</code></dd><dt>Por quê</dt><dd>Pressão anormal pode ser vazamento de óleo: risco de acidente e dano ambiental.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Temperatura do refrigerante alta</b><span class="tag t-ok">Dados atuais</span><span class="num idt">seg_temp</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">40 registros</dd><dt>De onde vem</dt><dd>Sensor de temperatura do refrigerante.</dd><dt>Conta</dt><dd>Registros acima de 31,7 °C (99% dos registros sem falha ficam abaixo disso).</dd>
+<dt>Com os números</dt><dd><code>40 de 2.500 registros</code></dd><dt>Por quê</dt><dd>Superaquecimento pode causar dano à máquina e risco ao operador.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Oscilação de tensão</b><span class="tag t-ok">Dados atuais</span><span class="num idt">seg_tensao</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">± 45 V</dd><dt>De onde vem</dt><dd>Sensor de tensão.</dd><dt>Conta</dt><dd>Desvio padrão da tensão: quanto ela varia em torno da média.</dd>
+<dt>Com os números</dt><dd><code>Desvio padrão de todas as leituras de tensão</code></dd><dt>Por quê</dt><dd>Tensão instável pode danificar motores e painéis elétricos.</dd></dl></div>
+<h3 id="pac-ges">Gestão de ações <span class="meta">(3 informações)</span></h3>
+<div class="item"><div class="item-top"><b>Plano de ação 5W2H</b><span class="tag t-ok">Dados atuais</span><span class="num idt">ges_5w2h</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">3 ações</dd><dt>De onde vem</dt><dd>Os 3 sensores que mais pesam no modelo, com a ação e o responsável ligados a cada um.</dd><dt>Conta</dt><dd>O quê, por quê, onde, quando, quem, como e quanto, montados automaticamente.</dd>
+<dt>Com os números</dt><dd><code>Quanto: até R$ 5.925 por mês cada, o teto que se paga com a economia</code></dd><dt>Por quê</dt><dd>Transforma análise em ação.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Ações no prazo</b><span class="tag t-ok">Dados atuais</span><span class="num idt">ges_status</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">0 de 3 feitas</dd><dt>De onde vem</dt><dd>Status de cada ação, marcado por quem executa.</dd><dt>Conta</dt><dd>Feitas, no prazo e atrasadas, contra o prazo de cada uma.</dd>
+<dt>Com os números</dt><dd><code>Prazos: 10/07, 17/07 e 24/07/2022</code></dd><dt>Por quê</dt><dd>Cobra a entrega no prazo.</dd></dl></div>
+<div class="item"><div class="item-top"><b>Necessidade de treinamento</b><span class="tag t-warn">Com premissa</span><span class="num idt">ges_trein</span></div>
+<dl class="kv2"><dt>Valor hoje</dt><dd class="num">534 falhas operacionais</dd><dt>De onde vem</dt><dd>Falhas da área operacional (ferramenta, força de corte, torque).</dd><dt>Conta</dt><dd>Falhas operacionais ÷ total de falhas.</dd>
+<dt>Com os números</dt><dd><code>534 ÷ 1265 = 42,2%</code></dd><dt>Por quê</dt><dd>Muitas falhas de operação indicam que os operadores podem precisar de treinamento.</dd></dl></div>
+</section>
+
+<section id="cargos"><h2>6. Cargos, permissões e tarefas</h2>
+<p>Cada setor é uma <b>árvore</b>. O dono cria o cargo de topo de cada setor (ex.: Gerência, Financeiro). Daí para baixo, <b>cada chefe monta a própria equipe</b>: cria cargos abaixo do seu, dá esses cargos às pessoas e delega tarefas, sempre só com o que ele mesmo tem. A cadeia desce até o fim: o penúltimo nível ainda repassa para o último, e só o último executa sem repassar.</p>
+<div class="tbl"><table>
+<tr><th>Peça</th><th>O que é</th></tr>
+<tr><td>Dono</td><td>Quem cadastra a empresa. Fica acima de todos, vê e gerencia tudo, e cria os setores.</td></tr>
+<tr><td>Cargo</td><td>Nome, cor, <b>cargo pai</b> (o de cima), as informações que libera, as máquinas que libera e se <b>pode repassar</b>.</td></tr>
+<tr><td>Pode repassar</td><td>Quem tem o cargo cria e edita cargos abaixo dele, dá esses cargos a pessoas e delega tarefas para baixo. Vem ligado por padrão; desliga só no último nível.</td></tr>
+<tr><td>Máquinas do cargo</td><td>Como os canais no Discord: cada informação do cargo aparece só com os dados dessas máquinas.</td></tr>
+<tr><td>Membro</td><td>Uma pessoa. Pode ter vários cargos; vê a soma deles.</td></tr>
+<tr><td>Tarefa</td><td>Uma ação (ex.: do plano 5W2H) com prazo, status, a informação que é preciso ver para fazê-la, o cargo que está com ela e o caminho por onde ela desceu.</td></tr>
+</table></div>
+<h3>Exemplo usado no simulador</h3>
+<pre class="code">Dono
+├─ Gerência da planta ─→ Supervisão de manutenção ─→ Técnico da L3 ─→ Auxiliar da L3 (último nível, não repassa)
+└─ Financeiro ─────────→ Analista financeiro ──────→ Estagiário (último nível, não repassa)</pre>
+<h3>As regras</h3>
+<ol class="steps">
+<li><b>Só dou o que tenho:</b> um cargo só pode ter as informações e máquinas do cargo pai. Na tela, o que o pai não tem aparece travado.</li>
+<li><b>Cada chefe na sua área:</b> quem tem um cargo que pode repassar só mexe nos cargos abaixo do seu, nunca no próprio cargo nem nos de outro setor.</li>
+<li><b>Tirou de cima, sai de baixo:</b> se um cargo perde algo, todos os cargos abaixo dele perdem também, descendo a árvore inteira.</li>
+<li><b>Até o penúltimo repassa:</b> todo cargo nasce podendo repassar; o chefe desliga só no último nível.</li>
+<li><b>Tarefas descem pela cadeia:</b> só delega quem está com a tarefa (num cargo que pode repassar), só para um cargo abaixo, e esse cargo precisa ver a informação da tarefa. O caminho fica registrado (Dono → Gerência → Supervisão → Técnico → Auxiliar).</li>
+<li><b>Soma por informação:</b> com dois cargos, cada informação aparece com a união das máquinas dos cargos que dão aquela informação.</li>
+<li><b>Excluir um cargo</b> sobe os cargos de baixo um nível e eles se ajustam ao novo pai.</li>
+<li><b>Tudo é registrado:</b> quem mudou o quê, quando. A IA nunca dá acesso sozinha.</li>
+</ol>
+<h3>As contas das regras</h3>
+<pre class="code">acesso(pessoa):
+  se pessoa é dono: todas as informações, todas as máquinas
+  senão, para cada cargo da pessoa (mais o @todos):
+    para cada informação do cargo: máquinas[informação] += máquinas do cargo
+  devolve { informação: máquinas }
+
+pode_mexer(pessoa, cargo):
+  dono → sim
+  senão → cargo está abaixo (descendente) de algum cargo da pessoa que pode repassar
+
+pode_ligar(cargo, informação ou máquina):
+  cargo de topo → só o dono, qualquer coisa
+  senão → só se o cargo pai tem
+
+cascata():  (depois de qualquer mudança)
+  para cada cargo, de cima para baixo:
+    filho.informações = filho.informações ∩ pai.informações
+    filho.máquinas    = filho.máquinas ∩ pai.máquinas
+
+pode_delegar(pessoa, tarefa, destino):
+  (pessoa é dono) ou (tarefa está num cargo da pessoa e esse cargo pode repassar)
+  e destino está abaixo do cargo da tarefa
+  e destino vê a informação da tarefa</pre>
+</section>
+
+<section id="paginas"><h2>7. Como o site monta as páginas</h2>
+<div class="tbl"><table>
+<tr><th>Página</th><th>Aparece quando</th><th>O que mostra</th></tr>
+<tr><td>Visão geral</td><td>Sempre</td><td>Alertas, até 6 indicadores em destaque, até 2 gráficos e os pacotes da pessoa</td></tr>
+<tr><td>Frota</td><td>A pessoa tem alguma destas: saúde, chance de falha, próxima falha, disponibilidade, falhas, risco em R$, última leitura</td><td>Tabela só com as máquinas dela e só com essas colunas</td></tr>
+<tr><td>Alertas</td><td>A pessoa tem alguma destas: máquina sem dados, disponibilidade, saúde, alertas de sensor</td><td>Cada alerta com a explicação de onde vem</td></tr>
+<tr><td>Uma página por pacote</td><td>A pessoa tem pelo menos uma informação do pacote</td><td>Indicadores, gráficos e todas as informações do pacote</td></tr>
+<tr><td>Copiloto IA</td><td>Sempre</td><td>Perguntas respondidas só com o que foi liberado</td></tr>
+<tr><td>Tarefas</td><td>A pessoa tem tarefas, ou tem um cargo que pode repassar</td><td>Tarefas com ela (mudar status, delegar para baixo), tarefas da equipe e criar tarefa</td></tr>
+<tr><td>Cargos e Membros (Sua equipe)</td><td>A pessoa é dono ou tem um cargo que pode repassar</td><td>A árvore de cargos e as pessoas, só mexendo abaixo do seu cargo</td></tr>
+</table></div>
+<h3>Regras dos alertas</h3>
+<ul class="clean">
+<li>Máquina sem enviar dados há mais de 7 dias (premissa do grupo).</li>
+<li>Disponibilidade abaixo da meta de 90%.</li>
+<li>Saúde abaixo de 50 (crítica).</li>
+<li>Pressão hidráulica abaixo de 101,7 bar em 15 ou mais dos últimos 30 registros.</li>
+</ul>
+<h3>Gráficos e de qual informação dependem</h3>
+<p>Falhas por mês (falhas e taxa) · custo por mês (custo das paradas) · disponibilidade por mês (disponibilidade) · chance de falha semanal (chance de falha) · pressão hidráulica semanal com zona de alerta (alertas de sensor) · risco por máquina (risco em R$) · saúde por máquina (saúde) · falhas por área (falhas por área) · peso dos sensores (confiabilidade do modelo). Cada gráfico usa só as máquinas que a pessoa recebeu.</p>
+</section>
+
+<section id="copiloto"><h2>8. O copiloto sem alucinação</h2>
+<ol class="steps">
+<li><b>A IA lê, nunca calcula.</b> Ela recebe por uma ferramenta só as informações já calculadas e já filtradas pelo acesso da pessoa (seção 6). O filtro é feito no servidor, nunca no texto da pergunta.</li>
+<li><b>Ferramenta sugerida:</b> <span class="num">get_management_panel</span>, que devolve só os itens liberados, por máquina.</li>
+<li><b>Verificador de números:</b> antes de mostrar a resposta, o app confere se cada número do texto existe no que a ferramenta devolveu. Se não existir, a resposta é bloqueada.</li>
+<li><b>Sem acesso, sem resposta:</b> se a pergunta precisa de uma informação não liberada, o copiloto diz que não pode e quem pode liberar.</li>
+<li><b>Respostas prontas</b> para as perguntas mais comuns (custo, risco, próxima falha, alertas, ação, máquina sem dados, disponibilidade), sem precisar da IA.</li>
+<li><b>Sempre com fonte:</b> cada resposta cita de qual informação veio.</li>
+</ol>
+</section>
+
+<section id="construir"><h2>9. Como construir no TelemetryOS</h2>
+<p>Proposta para o Maicon decidir. Mantém o padrão do app: Prisma, rotas enxutas, Zod, Command Bus nas escritas.</p>
+<h3>Banco (Prisma)</h3>
+<pre class="code">Role            id, nome, cor, parentId (null = topo de setor), podeRepassar, criadoPor, criadoEm
+RolePermission  roleId, itemId           (itemId = um dos 31 códigos da seção 5)
+RoleMachine     roleId, machineId
+MemberRole      userId, roleId
+User            + isOwner
+Task            id, titulo, itemId, prazo, status, roleId (com quem está), criadoPor
+TaskStep        taskId, roleId, delegadoPor, quando   (o caminho da tarefa)
+AccessAudit     quem, o quê, antes, depois, quando</pre>
+<h3>Cálculos</h3>
+<ul class="clean">
+<li>O script <span class="num">painel_gestor.py</span> já calcula tudo por máquina e grava <span class="num">painel.json</span>. Caminho mais rápido: rodar o script no worker depois de cada importação (contêiner Python separado no docker-compose, que também resolve o "Dockerfile do pipeline" do Sábado 2).</li>
+<li>Alternativa: portar as contas para TypeScript em <span class="num">lib/application/</span>. As contas são simples; o modelo de risco pode continuar em Python.</li>
+<li>Guardar os resultados por máquina, para filtrar por acesso sem recalcular.</li>
+</ul>
+<h3>API</h3>
+<pre class="code">GET  /api/me/acesso                → { item: [máquinas] } da pessoa logada
+GET  /api/painel                   → só os itens e máquinas do acesso
+GET  /api/roles · POST /api/roles · PATCH /api/roles/:id · DELETE /api/roles/:id
+PUT  /api/members/:id/roles
+GET  /api/tasks · POST /api/tasks · POST /api/tasks/:id/delegate · PATCH /api/tasks/:id
+Toda escrita valida: área do chefe, "só dá o que tem" e roda a cascata na mesma transação.</pre>
+<h3>Telas</h3>
+<ul class="clean">
+<li>O menu lateral sai de <span class="num">/api/me/acesso</span> (regras da seção 7).</li>
+<li>Cada informação vira um componente com valor, subtítulo e o bloco "De onde vem e como é calculado" (textos da seção 5).</li>
+<li>A tela de cargos copia a estrutura do simulador: árvore de cargos com cores à esquerda, botão "Criar cargo abaixo" e abas "O que vê", "Máquinas", "Pessoas", "Nome e cor", com a barra de mudanças não salvas.</li>
+<li>A tela de tarefas mostra o caminho de cada tarefa e só oferece, no "Delegar para baixo", os cargos permitidos.</li>
+</ul>
+<h3>Ordem sugerida até a banca</h3>
+<ol class="steps">
+<li>Tabelas de cargo e a função de acesso no servidor.</li>
+<li>Menu e Visão geral gerados pelo acesso, com 5 ou 6 informações.</li>
+<li>Árvore de cargos com "só dou o que tenho" e cascata.</li>
+<li>Tarefas descendo pela cadeia.</li>
+<li>Copiloto com a ferramenta filtrada e as respostas prontas.</li>
+<li>O resto das 31 informações e os gráficos.</li>
+</ol>
+</section>
+
+<section id="testes"><h2>10. Testes que o site precisa passar</h2>
+<p>Os mesmos que rodamos no simulador:</p>
+<div class="tbl"><table>
+<tr><th>Cenário</th><th>Resultado esperado</th></tr>
+<tr><td>Dono abre o site</td><td>8 pacotes e 31 informações, 9 gráficos somando as páginas, menu com Administração</td></tr>
+<tr><td>Cargo com só "custo por parada"</td><td>Menu só com Visão geral, Copiloto e Financeiro; um único número</td></tr>
+<tr><td>Cargo de manutenção só da L3</td><td>Frota com 1 máquina e só as colunas liberadas; alertas só da L3</td></tr>
+<tr><td>Pessoa com dois cargos</td><td>Vê a soma; cada informação com as máquinas do cargo que a deu</td></tr>
+<tr><td>Chefe da Gerência abre Cargos</td><td>Só mexe nos 3 cargos abaixo; o próprio cargo e o Financeiro aparecem travados</td></tr>
+<tr><td>Penúltimo nível (Técnico) edita o último (Auxiliar)</td><td>Só consegue ligar o que o Técnico tem; o resto aparece travado</td></tr>
+<tr><td>Dono tira um item da Supervisão</td><td>Técnico e Auxiliar perdem o item na hora</td></tr>
+<tr><td>Tarefa delegada Gerência → Supervisão → Técnico → Auxiliar</td><td>Cada um só vê destinos abaixo dele que veem a informação; o Auxiliar aparece como último nível</td></tr>
+<tr><td>Copiloto pergunta sem acesso</td><td>Nega e diz quem pode liberar</td></tr>
+<tr><td>Mesmo lote de dados enviado duas vezes</td><td>Nada duplica, os números não mudam</td></tr>
+</table></div>
+</section>
+
+<section id="limites"><h2>11. Limites e próximos passos</h2>
+<ul class="clean">
+<li><b>Os valores em R$ mostram o método,</b> não o prejuízo real: dataset com 50% de falhas e sem duração das paradas.</li>
+<li><b>O que a fábrica precisa enviar</b> para tirar as premissas: início e fim de cada parada, turnos, peças produzidas e boas (OEE completo), causa da parada e preventivas (SAP), custo real da hora.</li>
+<li><b>Nomes de setores e cargos</b> são exemplos: quem define é a empresa.</li>
+<li><b>Perguntar ao Mauricio:</b> numa base de paradas, cada registro costuma ser uma parada diferente ou uma leitura durante a mesma parada?</li>
+</ul>
+</section>
+
+<section id="glossario"><h2>12. Glossário</h2>
+<dl class="gloss">
+<dt>OEE</dt><dd>Nota de eficiência: disponibilidade × desempenho × qualidade.</dd>
+<dt>Disponibilidade</dt><dd>Parte do tempo em que a máquina funcionou.</dd>
+<dt>MTBF</dt><dd>Tempo médio entre falhas.</dd>
+<dt>Custo de reposição</dt><dd>Quanto custaria comprar fora o que se perdeu: aqui, terceirizar a hora de usinagem.</dd>
+<dt>Manutenção preditiva</dt><dd>Usar os sensores para consertar antes de quebrar.</dd>
+<dt>Regressão logística</dt><dd>Modelo simples que aprende com exemplos e devolve uma chance de 0% a 100%.</dd>
+<dt>Cargo</dt><dd>Conjunto de acessos: informações, máquinas e se pode repassar.</dd>
+<dt>Cascata</dt><dd>Quando alguém perde um acesso, os cargos que dependem dele perdem também.</dd>
+<dt>5W2H</dt><dd>Plano de ação: o quê, por quê, onde, quando, quem, como, quanto.</dd>
+</dl>
+</section>
+
+<footer>Fernando, Grupo 4. Gerado a partir do mesmo código do simulador: os textos e números da seção 5 são exatamente os que aparecem no site.</footer>
+</div>
+</html>
