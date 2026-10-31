@@ -136,7 +136,29 @@ export const schema = z.object({
   target: z.string(),
   limit: z.string(),
   reviewer: z.string(),
+  hydraulicPressure: z.number().nullable().optional(),
+  coolantPressure: z.number().nullable().optional(),
+  airSystemPressure: z.number().nullable().optional(),
+  hydraulicOilTemperature: z.number().nullable().optional(),
+  spindleBearingTemperature: z.number().nullable().optional(),
+  toolVibration: z.number().nullable().optional(),
+  spindleSpeed: z.number().nullable().optional(),
+  voltage: z.number().nullable().optional(),
+  torque: z.number().nullable().optional(),
+  cutting: z.number().nullable().optional(),
+  downtime: z.string().optional(),
+  downtimeLabel: z.string().optional(),
+  quality: z.string().optional(),
+  version: z.number().optional(),
+  recordKey: z.string().optional(),
 })
+
+export type DataTableRow = z.infer<typeof schema>
+export type DataTableExtraColumn = {
+  key: string
+  label: string
+  format?: (value: unknown, row: DataTableRow) => React.ReactNode
+}
 
 // Create a separate component for the drag handle
 function DragHandle({ id }: { id: number }) {
@@ -321,9 +343,11 @@ const columns = columnHelper.columns([
 function DraggableRow({
   row,
   readOnly = false,
+  extraColumns,
 }: {
   row: Row<typeof features, z.infer<typeof schema>>
   readOnly?: boolean
+  extraColumns?: DataTableExtraColumn[]
 }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
     id: row.original.id,
@@ -353,6 +377,7 @@ function DraggableRow({
             : <FlexRender cell={cell} />}
         </TableCell>
       ))}
+      {extraColumns?.map((column) => <TableCell key={column.key} className="whitespace-nowrap tabular-nums">{column.format ? column.format(row.original[column.key as keyof typeof row.original], row.original) : String(row.original[column.key as keyof typeof row.original] ?? "—")}</TableCell>)}
     </TableRow>
   )
 }
@@ -360,9 +385,11 @@ function DraggableRow({
 export function DataTable({
   data: initialData,
   labels,
+  extraColumns,
 }: {
   data: z.infer<typeof schema>[]
   labels?: Partial<Record<string, string>>
+  extraColumns?: DataTableExtraColumn[]
 }) {
   const [data, setData] = React.useState(() => initialData)
   React.useEffect(() => { setData(initialData); setPagination((p) => ({ ...p, pageIndex: 0 })) }, [initialData])
@@ -513,7 +540,7 @@ export function DataTable({
             sensors={sensors}
             id={sortableId}
           >
-            <Table>
+            <Table className={extraColumns?.length ? "min-w-[2400px]" : undefined}>
               <TableHeader className="sticky top-0 z-10 bg-muted">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
@@ -526,6 +553,7 @@ export function DataTable({
                         </TableHead>
                       )
                     })}
+                    {extraColumns?.map((column) => <TableHead key={column.key} className="whitespace-nowrap">{column.label}</TableHead>)}
                   </TableRow>
                 ))}
               </TableHeader>
@@ -536,13 +564,13 @@ export function DataTable({
                     strategy={verticalListSortingStrategy}
                   >
                     {table.getRowModel().rows.map((row) => (
-                      <DraggableRow key={row.id} row={row} readOnly={!!labels} />
+                      <DraggableRow key={row.id} row={row} readOnly={!!labels} extraColumns={extraColumns} />
                     ))}
                   </SortableContext>
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={columns.length}
+                      colSpan={columns.length + (extraColumns?.length ?? 0)}
                       className="h-24 text-center"
                     >
                       No results.

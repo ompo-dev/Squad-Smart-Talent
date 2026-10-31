@@ -4,11 +4,12 @@ import {useTelemetryStore} from "@/lib/stores/telemetry-store"
 import {recordComponentRender} from "@/lib/observability/client"
 import {useRealtimeStore} from "@/lib/stores/realtime-store"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
-import { TelemetryTable } from "@/components/telemetry-table"
+import { DataTable } from "@/components/data-table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardDescription, CardTitle, CardFooter } from "@/components/ui/card"
 import type {TelemetryRow} from "@/lib/types"
+import {telemetryDisplayRow,telemetryExtraColumns,telemetryLabels} from "@/lib/telemetry-display"
 
 export function StandardTelemetryView({ rows:initialRows, series:initialSeries, stats:initialStats,mode="readings" }: {
   mode?:"latest"|"alerts"|"readings"
@@ -29,6 +30,7 @@ export function StandardTelemetryView({ rows:initialRows, series:initialSeries, 
     const matchesDowntime=downtimeFilter==="all"||(downtimeFilter==="yes"&&row.downtime===true)||(downtimeFilter==="no"&&row.downtime===false)||(downtimeFilter==="unknown"&&row.downtime===null)
     return matchesSearch&&matchesCondition&&matchesDowntime
   }), [rows, search, condition, downtimeFilter])
+  const tableRows = useMemo(()=>filtered.map(telemetryDisplayRow), [filtered])
   return <div className="@container/main flex min-w-0 flex-col gap-6">
     <div className="flex items-center justify-end gap-3">{error&&<p role="alert" className="text-sm text-destructive">{error}</p>}<Button variant="outline" disabled={loading} onClick={()=>void load(mode)}>{loading?"Atualizando…":"Atualizar leituras"}</Button></div>
     {stats && <div className="grid gap-4 sm:grid-cols-2 @5xl/main:grid-cols-4">{[
@@ -45,7 +47,7 @@ export function StandardTelemetryView({ rows:initialRows, series:initialSeries, 
         <div className="flex flex-wrap gap-1">{["all","yes","no","unknown"].map((value) => <Button key={value} variant={downtimeFilter === value ? "secondary" : "ghost"} size="sm" onClick={() => setDowntimeFilter(value)}>{value==="all"?"Parada: todas":value==="yes"?"Com parada":value==="no"?"Sem parada":"Sem rótulo"}</Button>)}</div>
         <span className="ml-auto text-xs text-muted-foreground">{filtered.length.toLocaleString("pt-BR")} de {rows.length.toLocaleString("pt-BR")} registros</span>
       </div>
-      <div className="px-4 lg:px-6"><TelemetryTable rows={filtered}/></div>
+      <DataTable data={tableRows} labels={telemetryLabels} extraColumns={telemetryExtraColumns}/>
     </div>
   </div>
 }
