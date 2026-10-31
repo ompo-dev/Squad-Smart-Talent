@@ -4,8 +4,8 @@ import { Renderer, createLibrary, defineComponent, type OpenUIError } from "@ope
 import { AnalysisSpec, ChartResultSpec, DataResultSpec, FollowUpSpec, MetricSpec,ChangeReviewSpec,ImportReviewSpec } from "@/lib/openui-schema"
 import {ImportReviewCard} from "@/components/organisms/import-review-card"
 import { DataTable } from "@/components/data-table"
-import { TelemetryTable } from "@/components/telemetry-table"
 import { telemetryRowFromRecord } from "@/lib/telemetry-row"
+import { telemetryDisplayRow,telemetryExtraColumns,telemetryLabels } from "@/lib/telemetry-display"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/atoms"
@@ -23,8 +23,9 @@ const DataResult = defineComponent({ ...DataResultSpec, component: ({ props }) =
   if (!result || result.data.error) return <p className="text-sm text-muted-foreground">Resultado indisponível para esta tabela.</p>
   const readings = ["query_telemetry","get_alerts","analyze_uploaded_telemetry"].includes(result.name)
   const rawRows = result.data.rows ?? []
+  const readingRows = rawRows.map((row, index) => telemetryDisplayRow(telemetryRowFromRecord(row, index + 1)))
   const aggregateRows = rawRows.map((row, index) => ({ id: index + 1, header: String(row.grupo ?? index + 1), type: String(row.leituras ?? ""), status: "Calculado", target: String(row.media ?? "Ausente"), limit: String(row.maxima ?? "Ausente"), reviewer: String(result.args.metric ?? "") }))
-  return <div className="min-w-0 space-y-3 rounded-xl border bg-background py-4"><div className="px-6"><h4 className="text-sm font-semibold">{props.title}</h4><p className="mt-1 text-xs text-muted-foreground">{result.data.description}</p></div><div className="px-4">{readings ? <TelemetryTable rows={rawRows.map((row, index) => telemetryRowFromRecord(row, index + 1))} compact/> : <DataTable data={aggregateRows} labels={{header:"Grupo",type:"Leituras",status:"Status",target:"Média",limit:"Máxima",reviewer:"Métrica"}}/>}</div></div>
+  return <div className="min-w-0 space-y-3 rounded-xl border bg-background py-4"><div className="px-6"><h4 className="text-sm font-semibold">{props.title}</h4><p className="mt-1 text-xs text-muted-foreground">{result.data.description}</p></div><div className="px-4">{readings ? <DataTable data={readingRows} labels={telemetryLabels} extraColumns={telemetryExtraColumns}/> : <DataTable data={aggregateRows} labels={{header:"Grupo",type:"Leituras",status:"Status",target:"Média",limit:"Máxima",reviewer:"Métrica"}}/>}</div></div>
 } })
 const ChartResult = defineComponent({ ...ChartResultSpec, component: ({ props }) => {
   const result = useResult(props.resultId)
