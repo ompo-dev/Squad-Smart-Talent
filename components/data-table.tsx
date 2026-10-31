@@ -386,16 +386,26 @@ export function DataTable({
   data: initialData,
   labels,
   extraColumns,
+  showViews = true,
+  showSections = true,
 }: {
   data: z.infer<typeof schema>[]
   labels?: Partial<Record<string, string>>
   extraColumns?: DataTableExtraColumn[]
+  showViews?: boolean
+  showSections?: boolean
 }) {
   const [data, setData] = React.useState(() => initialData)
   React.useEffect(() => { setData(initialData); setPagination((p) => ({ ...p, pageIndex: 0 })) }, [initialData])
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [columnVisibility, setColumnVisibility] =
     React.useState<ColumnVisibilityState>({})
+  const [extraVisibility, setExtraVisibility] = React.useState<Record<string, boolean>>({})
+  React.useEffect(() => { setExtraVisibility(Object.fromEntries((extraColumns ?? []).map((column) => [column.key, true]))) }, [extraColumns])
+  const visibleExtraColumns = React.useMemo(
+    () => extraColumns?.filter((column) => extraVisibility[column.key] !== false),
+    [extraColumns, extraVisibility]
+  )
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   )
@@ -470,30 +480,32 @@ export function DataTable({
       className="w-full flex-col justify-start gap-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 lg:px-6">
-        <Label htmlFor="view-selector" className="sr-only">
-          View
-        </Label>
-        <Select value={activeView} onValueChange={(value) => { if (value) changeView(value) }}>
-          <SelectTrigger
-            className="flex w-fit xl:hidden"
-            size="sm"
-            id="view-selector"
-          >
-            <SelectValue placeholder="Select a view" />
-          </SelectTrigger>
-          <SelectContent>
-            {views.map((view) => <SelectItem key={view.id} value={view.id}>{view.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <TabsList className="hidden max-w-full overflow-x-auto **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/20 **:data-[slot=badge]:px-1 xl:flex">
-          {views.map((view, index) => <TabsTrigger key={view.id} value={view.id}>{view.name}{index > 0 && index < 3 && <Badge variant="secondary">{view.rows.length}</Badge>}</TabsTrigger>)}
-        </TabsList>
+        {showViews && <>
+          <Label htmlFor="view-selector" className="sr-only">
+            View
+          </Label>
+          <Select value={activeView} onValueChange={(value) => { if (value) changeView(value) }}>
+            <SelectTrigger
+              className="flex w-fit xl:hidden"
+              size="sm"
+              id="view-selector"
+            >
+              <SelectValue placeholder="Select a view" />
+            </SelectTrigger>
+            <SelectContent>
+              {views.map((view) => <SelectItem key={view.id} value={view.id}>{view.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <TabsList className="hidden max-w-full overflow-x-auto **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/20 **:data-[slot=badge]:px-1 xl:flex">
+            {views.map((view, index) => <TabsTrigger key={view.id} value={view.id}>{view.name}{index > 0 && index < 3 && <Badge variant="secondary">{view.rows.length}</Badge>}</TabsTrigger>)}
+          </TabsList>
+        </>}
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
-              <IconLayoutColumns /><span>Customize Columns</span><IconChevronDown />
+              <IconLayoutColumns /><span>Personalizar colunas</span><IconChevronDown />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-64">
               {table
                 .getAllColumns()
                 .filter(
@@ -515,15 +527,26 @@ export function DataTable({
                     </DropdownMenuCheckboxItem>
                   )
                 })}
+              {extraColumns?.length ? <DropdownMenuSeparator /> : null}
+              {extraColumns?.length ? <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Colunas adicionais</div> : null}
+              {extraColumns?.map((column) => (
+                <DropdownMenuCheckboxItem
+                  key={column.key}
+                  checked={extraVisibility[column.key] !== false}
+                  onCheckedChange={(value) => setExtraVisibility((previous) => ({ ...previous, [column.key]: !!value }))}
+                >
+                  {column.label}
+                </DropdownMenuCheckboxItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" size="sm" onClick={() => setAddingSection((value) => !value)}>
+          {showSections && <Button variant="outline" size="sm" onClick={() => setAddingSection((value) => !value)}>
             <IconPlus />
             <span>Add Section</span>
-          </Button>
+          </Button>}
         </div>
       </div>
-      {addingSection && <form className="mx-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-3 lg:mx-6" onSubmit={(event) => {
+      {showSections && addingSection && <form className="mx-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-3 lg:mx-6" onSubmit={(event) => {
         event.preventDefault(); if (!sectionName.trim()) return
         const id = `section-${Date.now()}`
         setSections((previous) => [...previous, { id, name: sectionName.trim(), ids: (selected.length ? selected : activeRows).map((row) => row.id) }]); setSectionName(""); setAddingSection(false); changeView(id)
@@ -540,7 +563,7 @@ export function DataTable({
             sensors={sensors}
             id={sortableId}
           >
-            <Table className={extraColumns?.length ? "min-w-[2400px]" : undefined}>
+            <Table className={visibleExtraColumns?.length ? "min-w-[2400px]" : undefined}>
               <TableHeader className="sticky top-0 z-10 bg-muted">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
@@ -553,7 +576,7 @@ export function DataTable({
                         </TableHead>
                       )
                     })}
-                    {extraColumns?.map((column) => <TableHead key={column.key} className="whitespace-nowrap">{column.label}</TableHead>)}
+                    {visibleExtraColumns?.map((column) => <TableHead key={column.key} className="whitespace-nowrap">{column.label}</TableHead>)}
                   </TableRow>
                 ))}
               </TableHeader>
@@ -564,16 +587,16 @@ export function DataTable({
                     strategy={verticalListSortingStrategy}
                   >
                     {table.getRowModel().rows.map((row) => (
-                      <DraggableRow key={row.id} row={row} readOnly={!!labels} extraColumns={extraColumns} />
+                      <DraggableRow key={row.id} row={row} readOnly={!!labels} extraColumns={visibleExtraColumns} />
                     ))}
                   </SortableContext>
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={columns.length + (extraColumns?.length ?? 0)}
+                      colSpan={columns.length + (visibleExtraColumns?.length ?? 0)}
                       className="h-24 text-center"
                     >
-                      No results.
+                      Nenhum resultado.
                     </TableCell>
                   </TableRow>
                 )}
@@ -583,13 +606,13 @@ export function DataTable({
         </div>
         <div className="flex items-center justify-between px-4">
           <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
-            {table.getFilteredSelectedRowModel().rows.length} of{" "}
-            {table.getFilteredRowModel().rows.length} row(s) selected.
+            {table.getFilteredSelectedRowModel().rows.length} de{" "}
+            {table.getFilteredRowModel().rows.length} linha(s) selecionada(s).
           </div>
           <div className="flex w-full items-center gap-8 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">
               <Label htmlFor="rows-per-page" className="text-sm font-medium">
-                Rows per page
+                Linhas por página
               </Label>
               <Select
                 value={`${table.state.pagination.pageSize}`}
@@ -610,7 +633,7 @@ export function DataTable({
               </Select>
             </div>
             <div className="flex w-fit items-center justify-center text-sm font-medium">
-              Page {table.state.pagination.pageIndex + 1} of{" "}
+              Página {table.state.pagination.pageIndex + 1} de{" "}
               {table.getPageCount()}
             </div>
             <div className="ml-auto flex items-center gap-2 lg:ml-0">
