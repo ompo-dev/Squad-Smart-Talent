@@ -14,3 +14,11 @@ __pycache__/
 deploy/.env
 deploy/.env.dev
 deploy/.env.prod
+
+# Artefatos locais do pipeline acadêmico
+*.py[cod]
+.venv/
+venv/
+
+# Bancos locais de desenvolvimento/teste
+*.db
