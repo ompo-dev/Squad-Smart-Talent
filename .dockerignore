@@ -1,6 +1,13 @@
 node_modules
 .next
 .git
+.idea
+.venv
+venv
+__pycache__
+*.db
+*.sqlite
+*.sqlite3
 outputs
 work
 *.log

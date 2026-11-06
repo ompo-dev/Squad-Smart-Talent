@@ -15,6 +15,10 @@
     "realtime": "tsx scripts/realtime.ts",
     "typecheck": "tsc --noEmit --incremental false",
     "test:pipeline": "node --test tests/pipeline.test.mjs",
+    "test:python": "python3 -m unittest discover -s tests -p 'test_pipeline.py' -v",
+    "pipeline:run": "python3 python/pipeline.py --input tests/fixtures/pipeline-known-cases.csv --output reports/pandas",
+    "verify:pandas-output": "python3 scripts/verify-pipeline-output.py reports/pandas",
+    "validate:pandas-keys": "node scripts/validate-pandas-record-keys.mjs",
     "test:e2e": "tsx tests/docker-flow.ts",
     "db:seed:ci": "node scripts/seed-ci.mjs",
     "test:ci": "tsx --test --test-concurrency=1 --test-reporter=spec --test-reporter=junit --test-reporter-destination=stdout --test-reporter-destination=reports/tests.xml tests/*.test.ts"

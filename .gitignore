@@ -1,5 +1,6 @@
 node_modules
 .next
+.idea/
 .env
 .env.local
 data/*.csv
@@ -19,6 +20,11 @@ deploy/.env.prod
 *.py[cod]
 .venv/
 venv/
+__pycache__/
+.pytest_cache/
 
 # Bancos locais de desenvolvimento/teste
 *.db
+*.db-*
+*.sqlite
+*.sqlite3
