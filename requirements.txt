@@ -1,0 +1,2 @@
+# Dependências do pipeline acadêmico Python/Pandas
+pandas>=2.0,<3.0
