@@ -53,4 +53,4 @@ CI
 
 - Só marque o card como **Em revisão** com PR aberto.
 - Só marque como **Feito** quando os jobs estiverem verdes, a revisão estiver concluída e a tabela de evidências tiver os links reais.
-- Antes do merge, resolva falhas preexistentes que bloqueiem a CI geral; elas não devem ser ocultadas com `any`, casts ou desativação de checks.
+- Antes do merge, confirme que `npm run typecheck` regenerou os tipos de rota do Next e passou; a CI executa esse mesmo comando, sem ocultar erros com `any`, casts ou desativação de checks.

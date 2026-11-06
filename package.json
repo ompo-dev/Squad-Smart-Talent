@@ -13,7 +13,7 @@
     "data:import": "tsx scripts/ingest.ts",
     "worker": "tsx scripts/worker.ts",
     "realtime": "tsx scripts/realtime.ts",
-    "typecheck": "tsc --noEmit --incremental false",
+    "typecheck": "next typegen && tsc --noEmit --incremental false",
     "test:pipeline": "node --test tests/pipeline.test.mjs",
     "test:python": "python3 -m unittest discover -s tests -p 'test_pipeline.py' -v",
     "pipeline:run": "python3 python/pipeline.py --input tests/fixtures/pipeline-known-cases.csv --output reports/pandas",
