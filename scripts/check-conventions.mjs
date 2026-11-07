@@ -12,7 +12,7 @@ export function checkPullRequest(event) {
   const pr = event.pull_request
   if (!pr) return
   if (!validCommitTitle(pr.title)) throw new Error("PR title must follow Conventional Commits: feat(scope): describe the change")
-  const promotion = pr.head.repo?.full_name === pr.base.repo?.full_name && pr.head.ref === "dev" && pr.base.ref === "main"
+  const promotion = pr.head.repo?.full_name === pr.base.repo?.full_name && ["dev", "homolog"].includes(pr.head.ref) && pr.base.ref === "main"
   const dependencyUpdate = pr.user?.login === "dependabot[bot]" && pr.head.repo?.full_name === pr.base.repo?.full_name && pr.head.ref.startsWith("dependabot/github_actions/")
   if (!promotion && !dependencyUpdate && !validBranch(pr.head.ref)) throw new Error("Branch must follow type/short-description, optionally with an issue number")
   if (pr.base.ref === "main" && !promotion && !pr.head.ref.startsWith("fix/")) {
