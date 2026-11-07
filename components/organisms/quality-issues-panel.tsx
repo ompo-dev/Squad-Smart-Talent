@@ -2,12 +2,15 @@
 import { useMemo } from "react"
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DataTable } from "@/components/data-table"
 import { qualityCsv, qualityOccurrences, summarizeQuality, type QualityOccurrence } from "@/lib/quality-issues"
 import { qualityIssueLabels, type QualityIssue } from "@/lib/telemetry-schema"
 import type {TelemetryRow} from "@/lib/types"
 
 const date = new Intl.DateTimeFormat("pt-BR", {dateStyle: "short", timeStyle: "short", timeZone: "UTC"})
+
+const qualityLabels = {header: "Máquina", type: "Linha", status: "Categoria", target: "Sensor", limit: "Motivo", reviewer: "Data"}
+const qualityExtraColumns = [{key: "recordKey", label: "Record key"}]
 
 function categorize(occurrence: QualityOccurrence) {
   return occurrence.category ? qualityIssueLabels[occurrence.category] : occurrence.reason
@@ -19,6 +22,16 @@ export function QualityIssuesPanel({rows, filter, loading}: {
   const occurrences = useMemo(() => qualityOccurrences(rows), [rows])
   const summary = useMemo(() => summarizeQuality(occurrences), [occurrences])
   const activeCategory = filter === "all" ? null : qualityIssueLabels[filter]
+  const tableRows = useMemo(() => occurrences.map((occurrence, index) => ({
+    id: index,
+    header: occurrence.machineId,
+    type: occurrence.assemblyLine,
+    status: categorize(occurrence),
+    target: occurrence.sensor,
+    limit: occurrence.reason,
+    reviewer: date.format(new Date(occurrence.timestamp)),
+    recordKey: occurrence.recordKey,
+  })), [occurrences])
 
   function exportCsv() {
     const blob = new Blob(["\ufeff" + qualityCsv(rows)], {type: "text/csv;charset=utf-8"})
@@ -48,29 +61,8 @@ export function QualityIssuesPanel({rows, filter, loading}: {
         <Download className="size-3.5"/>Exportar CSV
       </Button>
     </div>
-    {summary.occurrences > 0 && <div className="max-h-80 overflow-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Máquina</TableHead>
-            <TableHead>Linha</TableHead>
-            <TableHead>Data</TableHead>
-            <TableHead>Sensor</TableHead>
-            <TableHead>Motivo</TableHead>
-            <TableHead>Categoria</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {occurrences.map((occurrence, index) => <TableRow key={`${occurrence.recordKey}-${index}`}>
-            <TableCell className="font-medium whitespace-nowrap">{occurrence.machineId}</TableCell>
-            <TableCell className="whitespace-nowrap">{occurrence.assemblyLine}</TableCell>
-            <TableCell className="whitespace-nowrap tabular-nums">{date.format(new Date(occurrence.timestamp))}</TableCell>
-            <TableCell className="whitespace-nowrap">{occurrence.sensor}</TableCell>
-            <TableCell>{occurrence.reason}</TableCell>
-            <TableCell className="whitespace-nowrap">{categorize(occurrence)}</TableCell>
-          </TableRow>)}
-        </TableBody>
-      </Table>
+    {summary.occurrences > 0 && <div className="pb-2">
+      <DataTable data={tableRows} labels={qualityLabels} extraColumns={qualityExtraColumns} showViews={false} showSections={false}/>
     </div>}
   </section>
 }
