@@ -29,7 +29,7 @@ GRUPO_4_SMART_TALENT_ENTREGA_FINAL/
 │
 ├── 📂 dados/                           # Bases de dados e validações
 │   ├── machine_downtime.csv            # Dataset real bruto (2.500 registros)
-│   ├── grupo4_machine_downtime.db      # Banco SQLite tratado e validado
+│   ├── grupo4_machine_downtime.db      # Banco SQLite local, gerado pelo script (não versionado)
 │   └── 05_resumo_validacao.json        # Hashes SHA-256 e contagens de validação
 │
 ├── 📂 scripts/                         # Scripts de automação em Python padrão
@@ -71,3 +71,5 @@ python scripts/executar_consultas.py
 python scripts/preparar_banco.py ../data/machine_downtime.csv dados/grupo4_machine_downtime.db
 ```
 *(Gera um novo banco aplicando a limpeza de datas, números, sentinelas e faixas físicas)*
+
+O arquivo `.db` é ignorado pelo Git para evitar versionar artefatos binários gerados. Rode esse comando em uma cópia limpa do repositório antes de executar `scripts/executar_consultas.py`.

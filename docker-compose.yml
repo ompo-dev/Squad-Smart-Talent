@@ -64,4 +64,13 @@ services:
       CSV_PATH: /data/machine_downtime.csv
     volumes: ["./data:/data:ro"]
     depends_on: { postgres: { condition: service_healthy } }
+  pipeline:
+    build:
+      context: .
+      dockerfile: python/Dockerfile
+    profiles: ["tools"]
+    volumes:
+      - ./data:/input:ro
+      - ./reports/pandas:/output
+    command: ["--input", "/input/machine_downtime.csv", "--output", "/output"]
 volumes: { telemetry_pg: {}, telemetry_redis: {} }

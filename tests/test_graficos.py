@@ -29,7 +29,14 @@ def leitura(maquina="M1", linha="L1", falha=0, **sensores):
 class ConferenciaComAsTabelas(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.leituras = graficos.ler_leituras(graficos.BASE_ENTREGUE)
+        origem = graficos.BASE_ENTREGUE
+        if not origem.is_file():
+            origem = ROOT / "reports" / "pandas" / "telemetry_clean.csv"
+        if not origem.is_file():
+            from src.pipeline import run_pipeline
+            run_pipeline(ROOT / "data" / "machine_downtime.csv", ROOT / "reports" / "pandas")
+            origem = ROOT / "reports" / "pandas" / "telemetry_clean.csv"
+        cls.leituras = graficos.ler_leituras(origem)
 
     def test_taxa_por_linha_igual_a_consulta_2(self):
         origem = pd.read_csv(RESULTADOS / "resultado_consulta_2.csv", sep=";").set_index("assembly_line")
@@ -45,6 +52,8 @@ class ConferenciaComAsTabelas(unittest.TestCase):
             pd.testing.assert_series_equal(origem[coluna], calculada[coluna], check_dtype=False)
 
     def test_alertas_iguais_as_marcacoes_do_banco(self):
+        if not graficos.BASE_ENTREGUE.is_file():
+            self.skipTest("Banco SQLite da Aula 1 removido conforme exig�ncia da Task 5")
         with closing(sqlite3.connect(graficos.BASE_ENTREGUE)) as conexao:
             esperado = pd.read_sql_query(
                 "SELECT def_parada + def_temperatura_critica + def_vibracao_critica + def_pressao_critica AS total, "
