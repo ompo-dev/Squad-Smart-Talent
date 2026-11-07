@@ -36,8 +36,13 @@ Este é o repositório do projeto **Squad Smart Talent**. A aplicação web, a A
 | Recurso | O que você consegue fazer |
 | --- | --- |
 | Visão geral e frota | Consultar a última leitura de cada máquina, indicadores e gráficos. |
+<<<<<<< HEAD
+| Alertas | Localizar leituras com parada registrada ou sensores em faixas críticas de triagem definidas no schema. |
+| Relatórios | Visualizar a série diária e todas as leituras disponíveis, com todas as colunas. |
+=======
 | Alertas | Localizar leituras com temperatura acima de **100 °C** ou vibração acima de **4,5 mm/s**. |
 | Relatórios | Ver a taxa de falhas por linha, a prioridade de inspeção por máquina, a série diária e todas as leituras disponíveis, com todas as colunas. |
+>>>>>>> origin/homolog
 | Fontes de dados | Importar CSVs, consultar recebimentos por arquivo/webhook e acompanhar o estado real da atualização dos painéis. A conexão com APIs externas depende de um conector para a fonte escolhida. |
 | Copiloto IA | Fazer perguntas, arrastar arquivos para análise e apresentar tabelas, indicadores e gráficos. |
 | Importação pelo chat | Preparar CSV, XLSX ou JSON, conferir a prévia normalizada e confirmar a adição de novas leituras. Registros idênticos são deduplicados por `record_key`. |
@@ -1022,7 +1027,18 @@ python -m pip install -r requirements.txt
 python src/pipeline.py --input data/machine_downtime.csv --output reports/pandas
 ```
 
-`--input` é o CSV de origem (nunca é sobrescrito) e `--output` é a pasta de destino (criada se não existir). Se o arquivo não existir ou for inválido, o pipeline imprime `Erro: <mensagem>` em stderr e termina com código de saída 1 (sucesso = 0). Para rodar os testes: `python -m unittest discover -s tests/python -v`.
+`--input` é o CSV de origem (nunca é sobrescrito) e `--output` é a pasta de destino (criada se não existir). Se o arquivo não existir ou for inválido, o pipeline imprime `Erro: <mensagem>` em stderr e termina com código de saída 1 (sucesso = 0).
+
+Para validar a entrega Python localmente:
+
+```bash
+npm run test:python
+npm run pipeline:run
+npm run verify:pandas-output
+npm run validate:pandas-keys -- reports/pandas/telemetry_clean.csv
+```
+
+`pipeline:run` usa a amostra `tests/fixtures/pipeline-known-cases.csv`, que cobre data inválida, número com vírgula, sensor ausente, valor fora da faixa, duplicata e rótulo desconhecido. Os arquivos em `reports/pandas/` são descartáveis e também são enviados como artefato pela CI.
 
 ### Arquivos gerados
 
@@ -1054,6 +1070,12 @@ python src/pipeline.py --input data/machine_downtime.csv --output reports/pandas
 
 ### Verificações e limites
 
-- 18 testes automatizados (`tests/python/test_pipeline.py`) passando.
+- 18 testes unitários e de integração em `tests/test_pipeline.py`.
 - `npm run validate:pandas-keys -- reports/pandas/telemetry_clean.csv` recalcula em Node o SHA-256 de `JSON.stringify()` e confere com `record_key`: 2.500 registros, 0 divergências.
-- Essa checagem não compara todo o parser TypeScript com o Python; não se declara equivalência integral.
+- `tests/pandas-equivalence.test.ts` compara a fixture documentada entre Pandas e o parser TypeScript da aplicação: contagens, leituras limpas, chaves, valores e problemas de qualidade. Ela não declara equivalência integral para entradas fora da fixture.
+
+### CI e evidências
+
+O workflow existente instala as dependências Python, executa os testes, roda a fixture, valida os quatro arquivos exportados e confere as chaves com Node. Em seguida, a mesma fixture é executada na imagem `python/Dockerfile`; os dois conjuntos de resultados ficam disponíveis como artefatos da execução.
+
+Use [docs/sdlc-issue-11.md](docs/sdlc-issue-11.md) como plano da entrega e [docs/evidencias-entrega.md](docs/evidencias-entrega.md) para registrar os commits, PRs e comentários de revisão do time antes do envio.

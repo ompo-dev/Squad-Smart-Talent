@@ -1,0 +1,6 @@
+date,machine_id,assembly_line,hydraulic_pressure_bar,coolant_pressure_bar,air_system_pressure_bar,coolant_temperature_c,hydraulic_oil_temperature_c,spindle_bearing_temperature_c,spindle_vibration_um,tool_vibration_um,spindle_speed_rpm,voltage_v,torque_nm,cutting_kn,downtime
+2026-01-01,M-01,L-01,"12,5",5,6,20,40,35,1,20,12000,380,30,3,Machine_Failure
+2026-01-01,M-01,L-01,"12,5",5,6,20,40,35,1,20,12000,380,30,3,Machine_Failure
+31/02/2026,M-02,L-01,20,5,6,20,40,35,1,20,12000,380,30,3,No_Machine_Failure
+2026-01-02,M-02,L-01,N/A,5,6,120,40,35,1,20,12000,380,30,3,desconhecido
+2026-01-03,M-03,L-02,"1.234,5",5,6,,40,35,1,20,12000,380,30,3,No_Machine_Failure
