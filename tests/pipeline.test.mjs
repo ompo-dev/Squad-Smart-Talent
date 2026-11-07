@@ -21,6 +21,7 @@ test("normal PRs target dev; same-repository promotion and hotfix target main", 
   const pr = (head, base, repo = "ompo-dev/Squad-Smart-Talent") => ({ pull_request: { title: "feat(api): adicionar filtro", head: { ref: head, repo: { full_name: repo } }, base: { ref: base, repo: { full_name: "ompo-dev/Squad-Smart-Talent" } } } })
   assert.doesNotThrow(() => checkPullRequest(pr("feat/42-filtro", "dev")))
   assert.doesNotThrow(() => checkPullRequest(pr("dev", "main")))
+  assert.doesNotThrow(() => checkPullRequest(pr("homolog", "main")))
   assert.doesNotThrow(() => checkPullRequest(pr("fix/hotfix", "main")))
   assert.throws(() => checkPullRequest(pr("dev", "main", "other/fork")))
   assert.throws(() => checkPullRequest(pr("feat/42-filtro", "main")))
