@@ -7,6 +7,7 @@ import {
   parseDowntimeLabel,
   parseSensorNumber,
   parseTelemetryDate,
+  qualityIssueLabels,
   requiredFields,
   sensorDefinitions,
   type QualityIssue,
@@ -37,12 +38,7 @@ export type ParsedTelemetryReading = {
   qualityIssues: string[]
 } & Record<SensorKey, number | null>
 
-const issueLabel: Partial<Record<QualityIssue, string>> = {
-  missing: "ausente", sentinel: "sentinela", zero: "zero tratado como ausente",
-  negative: "negativo tratado como ausente", outOfRange: "fora da faixa física",
-  outlier: "outlier estatístico", missingLabel: "rótulo de parada ausente",
-  noSensors: "sem sensores", invalid: "inválido",
-}
+const issueLabel: Partial<Record<QualityIssue, string>> = qualityIssueLabels
 
 function text(value: unknown) {
   return String(value ?? "").trim()
