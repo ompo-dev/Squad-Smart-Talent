@@ -25,6 +25,14 @@ export type TelemetryField = "timestamp" | "machineId" | "assemblyLine" | Sensor
 
 export type QualityIssue = "missing" | "sentinel" | "zero" | "negative" | "outOfRange" | "outlier" | "missingLabel" | "noSensors" | "invalid"
 
+/** Motivo gravado em `quality_issues` para cada tipo de problema. */
+export const qualityIssueLabels: Record<QualityIssue, string> = {
+  missing: "ausente", sentinel: "sentinela", zero: "zero tratado como ausente",
+  negative: "negativo tratado como ausente", outOfRange: "fora da faixa física",
+  outlier: "outlier estatístico", missingLabel: "rótulo de parada ausente",
+  noSensors: "sem sensores", invalid: "inválido",
+}
+
 export type Thresholds = { warnLow?: number; warnHigh?: number; critLow?: number; critHigh?: number }
 
 export type SensorDefinition = {

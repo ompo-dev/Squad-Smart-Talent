@@ -1,5 +1,6 @@
 node_modules
 .next
+.idea/
 .env
 .env.local
 data/*.csv
@@ -14,3 +15,17 @@ __pycache__/
 deploy/.env
 deploy/.env.dev
 deploy/.env.prod
+
+# Artefatos locais do pipeline acadêmico
+*.py[cod]
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+
+# Bancos locais de desenvolvimento/teste
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+.skills/
