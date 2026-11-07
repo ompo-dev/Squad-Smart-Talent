@@ -99,10 +99,18 @@ class TitulosCalculados(unittest.TestCase):
 class Execucao(unittest.TestCase):
     def test_gera_pngs_sem_janela(self):
         with tempfile.TemporaryDirectory() as pasta:
-            feito = subprocess.run([sys.executable, str(ROOT / "src" / "graficos.py"), "--output", pasta], capture_output=True, text=True, encoding="utf-8")
+            entrada = Path(pasta) / "entrada.csv"
+            pd.DataFrame([
+                leitura(maquina="A", linha="Azul", falha=1),
+                leitura(maquina="B", linha="Verde", falha=0),
+            ]).to_csv(entrada, index=False)
+            saida = Path(pasta) / "saida"
+            feito = subprocess.run(
+                [sys.executable, str(ROOT / "src" / "graficos.py"), "--input", str(entrada), "--output", str(saida)],
+                capture_output=True, text=True, encoding="utf-8")
             self.assertEqual(feito.returncode, 0, feito.stderr)
             for nome in ("taxa_falhas_por_linha.png", "prioridade_inspecao_por_maquina.png"):
-                self.assertGreater((Path(pasta) / nome).stat().st_size, 10_000)
+                self.assertGreater((saida / nome).stat().st_size, 10_000)
         self.assertEqual(graficos.matplotlib.get_backend().lower(), "agg")
 
     def test_entrada_invalida_da_erro_claro(self):
