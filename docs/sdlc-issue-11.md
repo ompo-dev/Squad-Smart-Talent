@@ -35,7 +35,7 @@ CI
 
 ## 4. Implementação
 
-1. Manter o código do pipeline em `python/pipeline.py` e suas dependências em `requirements.txt`.
+1. Manter o código do pipeline em `src/pipeline.py` e suas dependências em `requirements.txt`.
 2. Executar testes Python isolados com `npm run test:python`.
 3. Rodar a fixture com `npm run pipeline:run` e verificar os arquivos com `npm run verify:pandas-output`.
 4. Comparar a fixture com o parser TypeScript em `tests/pandas-equivalence.test.ts`.

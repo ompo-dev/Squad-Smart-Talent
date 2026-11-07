@@ -3,6 +3,6 @@ FROM python:3.12-slim
 WORKDIR /workspace
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-COPY python/pipeline.py ./python/pipeline.py
+COPY src/ ./src/
 
-ENTRYPOINT ["python", "python/pipeline.py"]
+ENTRYPOINT ["python", "src/pipeline.py"]

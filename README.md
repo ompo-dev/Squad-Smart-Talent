@@ -1024,7 +1024,7 @@ python -m pip install -r requirements.txt
 ### Rodar
 
 ```bash
-python python/pipeline.py --input data/machine_downtime.csv --output reports/pandas
+python src/pipeline.py --input data/machine_downtime.csv --output reports/pandas
 ```
 
 `--input` é o CSV de origem (nunca é sobrescrito) e `--output` é a pasta de destino (criada se não existir). Se o arquivo não existir ou for inválido, o pipeline imprime `Erro: <mensagem>` em stderr e termina com código de saída 1 (sucesso = 0).

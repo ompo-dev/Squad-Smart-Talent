@@ -41,7 +41,7 @@ function parseCsv(text: string) {
 test("Pandas and the application parser agree on the documented edge-case fixture", () => {
   const output = mkdtempSync(join(tmpdir(), "telemetry-pandas-"))
   try {
-    execFileSync(process.env.PYTHON ?? "python3", ["python/pipeline.py", "--input", fixture, "--output", output], {cwd: root, stdio: "pipe"})
+    execFileSync(process.env.PYTHON ?? "python3", ["src/pipeline.py", "--input", fixture, "--output", output], {cwd: root, stdio: "pipe"})
     const python = JSON.parse(readFileSync(join(output, "quality_report.json"), "utf8"))
     const exported = parseCsv(readFileSync(join(output, "telemetry_clean.csv"), "utf8").replace(/^\uFEFF/, ""))
     const application = parseTelemetry(readFileSync(fixture, "utf8"))
