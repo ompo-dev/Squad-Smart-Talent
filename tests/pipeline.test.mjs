@@ -22,6 +22,7 @@ test("normal PRs target dev; same-repository promotion and hotfix target main", 
   assert.doesNotThrow(() => checkPullRequest(pr("feat/42-filtro", "dev")))
   assert.doesNotThrow(() => checkPullRequest(pr("dev", "main")))
   assert.doesNotThrow(() => checkPullRequest(pr("homolog", "main")))
+  assert.doesNotThrow(() => checkPullRequest(pr("homolog", "dev")))
   assert.doesNotThrow(() => checkPullRequest(pr("fix/hotfix", "main")))
   assert.throws(() => checkPullRequest(pr("dev", "main", "other/fork")))
   assert.throws(() => checkPullRequest(pr("feat/42-filtro", "main")))
