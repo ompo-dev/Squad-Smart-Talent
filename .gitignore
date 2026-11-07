@@ -22,3 +22,5 @@ venv/
 
 # Bancos locais de desenvolvimento/teste
 *.db
+
+.skills/
