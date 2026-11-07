@@ -29,14 +29,16 @@ def leitura(maquina="M1", linha="L1", falha=0, **sensores):
 class ConferenciaComAsTabelas(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        origem = graficos.BASE_ENTREGUE
-        if not origem.is_file():
-            origem = ROOT / "reports" / "pandas" / "telemetry_clean.csv"
-        if not origem.is_file():
-            from src.pipeline import run_pipeline
-            run_pipeline(ROOT / "data" / "machine_downtime.csv", ROOT / "reports" / "pandas")
-            origem = ROOT / "reports" / "pandas" / "telemetry_clean.csv"
-        cls.leituras = graficos.ler_leituras(origem)
+        from src.pipeline import run_pipeline
+
+        cls._saida = tempfile.TemporaryDirectory()
+        pasta = Path(cls._saida.name) / "pandas"
+        run_pipeline(ROOT / "data" / "machine_downtime.csv", pasta)
+        cls.leituras = graficos.ler_leituras(pasta / "telemetry_clean.csv")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._saida.cleanup()
 
     def test_taxa_por_linha_igual_a_consulta_2(self):
         origem = pd.read_csv(RESULTADOS / "resultado_consulta_2.csv", sep=";").set_index("assembly_line")
@@ -97,10 +99,18 @@ class TitulosCalculados(unittest.TestCase):
 class Execucao(unittest.TestCase):
     def test_gera_pngs_sem_janela(self):
         with tempfile.TemporaryDirectory() as pasta:
-            feito = subprocess.run([sys.executable, str(ROOT / "src" / "graficos.py"), "--output", pasta], capture_output=True, text=True, encoding="utf-8")
+            entrada = Path(pasta) / "entrada.csv"
+            pd.DataFrame([
+                leitura(maquina="A", linha="Azul", falha=1),
+                leitura(maquina="B", linha="Verde", falha=0),
+            ]).to_csv(entrada, index=False)
+            saida = Path(pasta) / "saida"
+            feito = subprocess.run(
+                [sys.executable, str(ROOT / "src" / "graficos.py"), "--input", str(entrada), "--output", str(saida)],
+                capture_output=True, text=True, encoding="utf-8")
             self.assertEqual(feito.returncode, 0, feito.stderr)
             for nome in ("taxa_falhas_por_linha.png", "prioridade_inspecao_por_maquina.png"):
-                self.assertGreater((Path(pasta) / nome).stat().st_size, 10_000)
+                self.assertGreater((saida / nome).stat().st_size, 10_000)
         self.assertEqual(graficos.matplotlib.get_backend().lower(), "agg")
 
     def test_entrada_invalida_da_erro_claro(self):

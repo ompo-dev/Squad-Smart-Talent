@@ -348,9 +348,11 @@ A carga por terminal executa o importador diretamente. A fila descrita acima é 
 
 ```bash
 pip install -r requirements.txt
-python src/graficos.py                                                    # base SQLite da Aula 1
+python src/pipeline.py --input data/machine_downtime.csv --output reports/pandas
 python src/graficos.py --input reports/pandas/telemetry_clean.csv --output reports/pandas
 ```
+
+Sem `--input`, `src/graficos.py` usa `reports/pandas/telemetry_clean.csv` quando ele existe. Sem o CSV limpo o comando termina com `Erro: arquivo não encontrado`: o banco SQLite da Aula 1 não é versionado e pode ser recriado conforme [`docs/entrega-aula-1/README.md`](docs/entrega-aula-1/README.md).
 
 Sem interface gráfica, inclusive em container:
 
@@ -387,6 +389,12 @@ Cada critério atendido vale 1 ponto (Alta: 3 ou 4 · Média: 2 · Baixa: 0 ou 1
 - **Linha e máquina se confundem:** cada linha tem uma única máquina, então os dados não separam efeito da linha e efeito da máquina.
 - **Temperatura da Makino-L2:** o critério vem de uma única leitura de 98,2 °C, enquanto as demais ficam abaixo de 45 °C. Pode ser erro de sensor; sem ela, a máquina cairia para 2 pontos e deixaria de empatar.
 - **Corte de período fixo:** 26/03/2022 vem da consulta 5 e não divide o período ao meio (1.673 leituras antes, 827 depois). Deve ser revisto na consulta e no código quando entrarem dados novos.
+
+## Investigação de problemas de qualidade
+
+As páginas **Visão geral**, **Frota**, **Alertas** e **Relatórios** filtram as leituras pelo tipo de problema já gravado em `quality_issues`: ausente, sentinela, zero tratado como ausente, negativo, fora da faixa física, outlier estatístico, rótulo de parada ausente, sem sensores e inválido. Nenhuma regra de limpeza é reaplicada na consulta.
+
+O painel **Problemas de qualidade** lista, para cada ocorrência, máquina, linha, data, sensor e motivo registrado. A contagem separa **leituras afetadas** de **ocorrências totais**, porque uma leitura pode acumular vários problemas. O botão **Exportar CSV** baixa todas as ocorrências das leituras filtradas, não apenas a página visível da tabela.
 
 ## Como funciona o copiloto
 

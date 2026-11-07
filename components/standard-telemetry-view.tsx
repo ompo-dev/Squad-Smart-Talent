@@ -12,6 +12,9 @@ import { Card, CardHeader, CardDescription, CardTitle, CardFooter } from "@/comp
 import { Search, X } from "lucide-react"
 import type {TelemetryRow} from "@/lib/types"
 import {telemetryDisplayRow,telemetryExtraColumns,telemetryLabels} from "@/lib/telemetry-display"
+import {matchesQuality,qualityCategories} from "@/lib/quality-issues"
+import type {QualityIssue} from "@/lib/telemetry-schema"
+import {QualityIssuesPanel} from "@/components/organisms/quality-issues-panel"
 
 export function StandardTelemetryView({ rows:initialRows, series:initialSeries, stats:initialStats,mode="readings" }: {
   mode?:"latest"|"alerts"|"readings"
@@ -25,19 +28,21 @@ export function StandardTelemetryView({ rows:initialRows, series:initialSeries, 
   const [search, setSearch] = useState("")
   const [condition, setCondition] = useState("all")
   const [downtimeFilter, setDowntimeFilter] = useState("all")
+  const [qualityFilter, setQualityFilter] = useState<QualityIssue | "all">("all")
   const filtered = useMemo(() => rows.filter((row) => {
     const text=`${row.machineId} ${row.assemblyLine} ${row.recordKey}`.toLowerCase()
     const matchesSearch=text.includes(search.toLowerCase())
     const matchesCondition=condition==="all"||row.status===condition
     const matchesDowntime=downtimeFilter==="all"||(downtimeFilter==="yes"&&row.downtime===true)||(downtimeFilter==="no"&&row.downtime===false)||(downtimeFilter==="unknown"&&row.downtime===null)
-    return matchesSearch&&matchesCondition&&matchesDowntime
-  }), [rows, search, condition, downtimeFilter])
+    return matchesSearch&&matchesCondition&&matchesDowntime&&matchesQuality(row,qualityFilter)
+  }), [rows, search, condition, downtimeFilter, qualityFilter])
   const tableRows = useMemo(()=>filtered.map(telemetryDisplayRow), [filtered])
-  const activeFilters = Boolean(search || condition !== "all" || downtimeFilter !== "all")
+  const activeFilters = Boolean(search || condition !== "all" || downtimeFilter !== "all" || qualityFilter !== "all")
   function clearFilters() {
     setSearch("")
     setCondition("all")
     setDowntimeFilter("all")
+    setQualityFilter("all")
   }
   return <div className="@container/main flex min-w-0 flex-col gap-6">
     <div className="flex items-center justify-end gap-3">{error&&<p role="alert" className="text-sm text-destructive">{error}</p>}<Button variant="outline" disabled={loading} onClick={()=>void load(mode)}>{loading?"Atualizando…":"Atualizar leituras"}</Button></div>
@@ -76,6 +81,13 @@ export function StandardTelemetryView({ rows:initialRows, series:initialSeries, 
                 <SelectItem value="unknown">Sem rótulo</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={qualityFilter} onValueChange={(value) => value && setQualityFilter(value as QualityIssue | "all")}>
+              <SelectTrigger size="sm" className="w-[230px]" aria-label="Filtrar por problema de qualidade"><SelectValue>{qualityFilter === "all" ? "Toda a qualidade" : qualityCategories.find(category => category.value === qualityFilter)?.label}</SelectValue></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toda a qualidade</SelectItem>
+                {qualityCategories.map(category => <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Button variant="ghost" size="sm" onClick={clearFilters} disabled={!activeFilters} className="gap-1"><X className="size-3.5"/>Limpar</Button>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground lg:ml-auto">
@@ -86,5 +98,6 @@ export function StandardTelemetryView({ rows:initialRows, series:initialSeries, 
       </div>
       <DataTable data={tableRows} labels={telemetryLabels} extraColumns={telemetryExtraColumns} showViews={false} showSections={false}/>
     </div>
+    <QualityIssuesPanel rows={filtered} filter={qualityFilter} loading={loading}/>
   </div>
 }
