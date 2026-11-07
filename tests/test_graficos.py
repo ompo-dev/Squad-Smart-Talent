@@ -29,14 +29,16 @@ def leitura(maquina="M1", linha="L1", falha=0, **sensores):
 class ConferenciaComAsTabelas(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        origem = graficos.BASE_ENTREGUE
-        if not origem.is_file():
-            origem = ROOT / "reports" / "pandas" / "telemetry_clean.csv"
-        if not origem.is_file():
-            from src.pipeline import run_pipeline
-            run_pipeline(ROOT / "data" / "machine_downtime.csv", ROOT / "reports" / "pandas")
-            origem = ROOT / "reports" / "pandas" / "telemetry_clean.csv"
-        cls.leituras = graficos.ler_leituras(origem)
+        from src.pipeline import run_pipeline
+
+        cls._saida = tempfile.TemporaryDirectory()
+        pasta = Path(cls._saida.name) / "pandas"
+        run_pipeline(ROOT / "data" / "machine_downtime.csv", pasta)
+        cls.leituras = graficos.ler_leituras(pasta / "telemetry_clean.csv")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._saida.cleanup()
 
     def test_taxa_por_linha_igual_a_consulta_2(self):
         origem = pd.read_csv(RESULTADOS / "resultado_consulta_2.csv", sep=";").set_index("assembly_line")
