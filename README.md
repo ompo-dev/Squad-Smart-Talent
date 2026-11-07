@@ -999,3 +999,61 @@ O PostgreSQL usa o volume `telemetry_pg`, e o Redis, `telemetry_redis`, sob o pr
 - **APIs externas:** o painel apresenta a opção de integração, mas a consulta periódica depende de um conector para a fonte escolhida. O recebimento de leituras por webhook assinado já está implementado.
 - **Eventos:** WebSocket exige gateway ativo e Redis acessível. Ao reconectar, o cliente consulta a API para recuperar o estado.
 - **Qualidade automatizada:** a CI usa fixture sintética e testa tipos, contratos, aplicação e containers; lint de estilo ainda precisa de configuração.
+
+---
+
+## Pipeline acadêmico independente com Python e Pandas
+
+Pipeline que roda em qualquer máquina com Python: lê o CSV de telemetria, limpa os dados e gera tabelas-resumo e um relatório de qualidade. **Não precisa de Next.js, PostgreSQL, Redis nem do banco SQLite da Aula 1.** As regras reproduzem `lib/telemetry-schema.ts` e `lib/application/import-telemetry.ts`.
+
+### Instalar
+
+Requer Python 3.10+ e pip. Na raiz do repositório (o `.venv/` já está no `.gitignore`; `requirements.txt` inclui `matplotlib` para os gráficos da Task 2):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python -m pip install -r requirements.txt
+```
+
+### Rodar
+
+```bash
+python src/pipeline.py --input data/machine_downtime.csv --output reports/pandas
+```
+
+`--input` é o CSV de origem (nunca é sobrescrito) e `--output` é a pasta de destino (criada se não existir). Se o arquivo não existir ou for inválido, o pipeline imprime `Erro: <mensagem>` em stderr e termina com código de saída 1 (sucesso = 0). Para rodar os testes: `python -m unittest discover -s tests/python -v`.
+
+### Arquivos gerados
+
+| Arquivo | Conteúdo |
+|---|---|
+| `telemetry_clean.csv` | Leituras limpas, rótulo original, chave determinística e problemas encontrados. A coluna `quality_issues` é texto com itens separados por ` \| ` (espaço, barra vertical, espaço); vazia quando não há problema. Ex.: `Temp. refr.: ausente \| Vib. spindle: outlier estatístico`. |
+| `summary_by_machine.csv` | Leituras, falhas e taxa de falhas por máquina. |
+| `summary_by_line.csv` | Os mesmos indicadores por linha de montagem. |
+| `quality_report.json` | Contagens de entrada, inválidos, duplicados, células corrigidas, outliers e critérios usados. |
+
+### Problemas tratados e justificativas
+
+| Problema | Decisão | Justificativa |
+|---|---|---|
+| Células vazias, `NA`, `null`, `-` ou sentinelas numéricas (módulo ≥ 1 bilhão) | Converter para nulo e contar como ausente | Não são medições físicas utilizáveis. |
+| Zeros, negativos e valores fora da faixa física | Converter para nulo e registrar o tipo do problema | Os sensores são positivos; as faixas seguem `lib/telemetry-schema.ts`. |
+| Valores estatisticamente extremos | Sinalizar por `Q1 − 3×IQR` / `Q3 + 3×IQR` sem apagar o valor | Outlier é alerta para investigação, não prova de erro. Exige ao menos 8 valores. |
+| Sensor ausente em uma leitura | Manter a leitura e marcá-la como incompleta | Um sensor ausente não invalida os demais da mesma observação. |
+| Data, máquina ou linha vazias | Rejeitar só essa linha e registrar até 5 exemplos | Sem esses campos não dá para identificar e agrupar a leitura. |
+| Rótulo de falha desconhecido | Manter nulo e excluir do denominador da taxa | Não se deve assumir "sem falha" sem evidência. |
+| Registros repetidos | Manter a primeira ocorrência, pela chave SHA-256 dos campos limpos | Evita contar a mesma leitura duas vezes e mantém a execução reproduzível. |
+| Cabeçalhos em português/inglês, com acento ou unidade entre parênteses; números com vírgula decimal ou unidade anexada | Normalizar cabeçalhos para aliases canônicos e interpretar formatos regionais; erro se duas colunas representarem o mesmo campo | Evita ler a coluna errada ou escolher silenciosamente entre campos conflitantes. |
+
+**Taxa de falhas** = leituras com `downtime=True` ÷ leituras com downtime conhecido × 100. Grupos sem rótulo conhecido ficam com taxa vazia, não zero.
+
+### Resultado no dataset original
+
+2.500 linhas recebidas, 2.500 válidas, 0 inválidas, 0 duplicadas; 143 células ausentes, 9 zeros, 2 negativos, 4 outliers (154 células corrigidas em 130 leituras).
+
+### Verificações e limites
+
+- 18 testes automatizados (`tests/python/test_pipeline.py`) passando.
+- `npm run validate:pandas-keys -- reports/pandas/telemetry_clean.csv` recalcula em Node o SHA-256 de `JSON.stringify()` e confere com `record_key`: 2.500 registros, 0 divergências.
+- Essa checagem não compara todo o parser TypeScript com o Python; não se declara equivalência integral.
