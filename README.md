@@ -16,6 +16,7 @@ Este é o repositório do projeto **Squad Smart Talent**. A aplicação web, a A
 - [Desenvolvimento local](#desenvolvimento-local)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [Formato e importação dos dados](#formato-e-importação-dos-dados)
+- [Gráficos de triagem de manutenção](#gráficos-de-triagem-de-manutenção)
 - [Como funciona o copiloto](#como-funciona-o-copiloto)
 - [Arquitetura e fluxo de dados](#arquitetura-e-fluxo-de-dados)
 - [Padrões de desenvolvimento](#padrões-de-desenvolvimento)
@@ -35,8 +36,13 @@ Este é o repositório do projeto **Squad Smart Talent**. A aplicação web, a A
 | Recurso | O que você consegue fazer |
 | --- | --- |
 | Visão geral e frota | Consultar a última leitura de cada máquina, indicadores e gráficos. |
+<<<<<<< HEAD
 | Alertas | Localizar leituras com parada registrada ou sensores em faixas críticas de triagem definidas no schema. |
 | Relatórios | Visualizar a série diária e todas as leituras disponíveis, com todas as colunas. |
+=======
+| Alertas | Localizar leituras com temperatura acima de **100 °C** ou vibração acima de **4,5 mm/s**. |
+| Relatórios | Ver a taxa de falhas por linha, a prioridade de inspeção por máquina, a série diária e todas as leituras disponíveis, com todas as colunas. |
+>>>>>>> origin/homolog
 | Fontes de dados | Importar CSVs, consultar recebimentos por arquivo/webhook e acompanhar o estado real da atualização dos painéis. A conexão com APIs externas depende de um conector para a fonte escolhida. |
 | Copiloto IA | Fazer perguntas, arrastar arquivos para análise e apresentar tabelas, indicadores e gráficos. |
 | Importação pelo chat | Preparar CSV, XLSX ou JSON, conferir a prévia normalizada e confirmar a adição de novas leituras. Registros idênticos são deduplicados por `record_key`. |
@@ -227,6 +233,7 @@ O comando `npm run build` já faz essa cópia automaticamente.
 | `npm run test:agent` | Executar os arquivos `tests/*.test.ts` sequencialmente. |
 | `npm run typecheck` | Verificar os tipos TypeScript. |
 | `npm run test:pipeline` | Testar convenções e fixture sintética sem banco. |
+| `python src/graficos.py` | Gerar os gráficos de triagem em PNG. Requer `pip install -r requirements.txt`. |
 | `npm run test:ci` | Executar a suíte de aplicação com relatório JUnit em `reports/`. |
 | `npm run test:e2e` | Verificar a stack HTTP, worker e WebSocket em execução. |
 | `npm run db:seed:ci` | Alimentar uma base local descartável `telemetry_ci`, vazia e com `CI=true`. |
@@ -334,6 +341,52 @@ node --env-file=.env --run data:import
 ```
 
 A carga por terminal executa o importador diretamente. A fila descrita acima é o fluxo de upload pela API/interface.
+
+## Gráficos de triagem de manutenção
+
+`src/graficos.py` responde duas perguntas de negócio com os mesmos critérios das consultas 2 e 5 de [`docs/entrega-aula-1/`](docs/entrega-aula-1/). A página **Relatórios** mostra as mesmas análises, calculadas sobre as leituras consultadas no PostgreSQL. Títulos, empates e avisos são calculados a partir dos dados.
+
+```bash
+pip install -r requirements.txt
+python src/graficos.py                                                    # base SQLite da Aula 1
+python src/graficos.py --input reports/pandas/telemetry_clean.csv --output reports/pandas
+```
+
+Sem interface gráfica, inclusive em container:
+
+```bash
+docker run --rm -v "$PWD:/app" -w /app python:3.12-slim sh -c "pip install -q -r requirements.txt && python src/graficos.py"
+```
+
+O comando grava em `--output` (padrão `reports/pandas`) os arquivos `taxa_falhas_por_linha.png`, `prioridade_inspecao_por_maquina.png` e as tabelas de conferência `falhas_por_linha.csv` e `prioridade_por_maquina.csv`. Um pipeline chama `gerar_graficos(leituras_limpas, pasta_de_saida)`; as colunas esperadas são as de `telemetry_clean.csv`. `python -m unittest tests/test_graficos.py` e `tests/maintenance-report.test.ts` conferem os números com `resultado_consulta_2.csv` e `resultado_consulta_5.csv`.
+
+### Qual linha apresenta maior proporção de leituras com falha?
+
+![Taxa de falhas por linha](docs/entrega-aula-1/graficos/taxa_falhas_por_linha.png)
+
+**Conclusão com a base atual:** a Shopfloor-L1 tem a maior taxa (51,95%, 454 de 874 leituras), mas a diferença para a menor é de 2,94 p.p. e as margens de 95% se sobrepõem. A base não sustenta dizer que uma linha é pior que as outras.
+
+### Quais máquinas merecem investigação primeiro e por quê?
+
+![Prioridade de inspeção por máquina](docs/entrega-aula-1/graficos/prioridade_inspecao_por_maquina.png)
+
+Cada critério atendido vale 1 ponto (Alta: 3 ou 4 · Média: 2 · Baixa: 0 ou 1):
+
+1. Alertas por leitura acima da média da frota. Alerta = falha registrada ou temperatura, vibração ou pressão em faixa crítica; uma leitura soma até 4.
+2. Leituras incompletas acima da média da frota.
+3. Temperatura máxima do refrigerante de 45 °C ou mais.
+4. Alertas por leitura maiores no 2º período (a partir de 26/03/2022) do que no 1º.
+
+**Conclusão com a base atual:** Makino-L1-Unit1-2013 e Makino-L2-Unit1-2015 empatam com 3 de 4 critérios, e a Makino-L3-Unit1-2015 soma 2. As duas primeiras são as candidatas à primeira inspeção; a escolha entre elas depende de quem conhece a operação. O empate não é desfeito: a ordem dentro dele é alfabética.
+
+### Limites da interpretação
+
+- **É triagem, não diagnóstico:** indica onde olhar primeiro. Não prevê falha nem aponta a causa.
+- **Duração de parada e OEE:** os dados marcam se a leitura teve falha, mas não por quanto tempo a máquina ficou parada. Sem isso, e sem produção e qualidade, não é possível calcular disponibilidade, desempenho, qualidade nem OEE.
+- **Taxa não é frequência de quebra:** cerca de metade das leituras tem falha, proporção alta demais para ser tomada como a realidade de uma fábrica. A taxa serve para comparar registros desta base.
+- **Linha e máquina se confundem:** cada linha tem uma única máquina, então os dados não separam efeito da linha e efeito da máquina.
+- **Temperatura da Makino-L2:** o critério vem de uma única leitura de 98,2 °C, enquanto as demais ficam abaixo de 45 °C. Pode ser erro de sensor; sem ela, a máquina cairia para 2 pontos e deixaria de empatar.
+- **Corte de período fixo:** 26/03/2022 vem da consulta 5 e não divide o período ao meio (1.673 leituras antes, 827 depois). Deve ser revisto na consulta e no código quando entrarem dados novos.
 
 ## Como funciona o copiloto
 
