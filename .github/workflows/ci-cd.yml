@@ -30,6 +30,8 @@ jobs:
           package-manager-cache: false
       - run: node scripts/check-conventions.mjs
       - run: npm run test:pipeline
+      - name: Maintenance charts in a container without display
+        run: docker run --rm -v "$PWD:/app" -w /app python:3.12-slim sh -c "pip install -q --root-user-action=ignore -r requirements.txt && python -m unittest tests/test_graficos.py"
       - run: bash -n deploy/deploy.sh && bash tests/deploy.test.sh
 
   quality:
