@@ -364,7 +364,7 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
     argumentos = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    argumentos.add_argument("--input", type=Path, default=BASE_ENTREGUE, help="telemetry_clean.csv do pipeline ou banco SQLite da Aula 1")
+    argumentos.add_argument("--input", type=Path, default=ROOT / "reports" / "pandas" / "telemetry_clean.csv", help="telemetry_clean.csv do pipeline ou banco SQLite da Aula 1 (fallback)")
     argumentos.add_argument("--output", type=Path, default=ROOT / "reports" / "pandas")
     opcoes = argumentos.parse_args()
     try:

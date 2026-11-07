@@ -365,6 +365,22 @@ def run_pipeline(input_path: Path, output_dir: Path) -> dict[str, Any]:
     }
     (output_dir / "quality_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
+
+    # Gera��o dos gr�ficos conclusivos da Task 2
+    try:
+        try:
+            from src.graficos import gerar_graficos
+        except ImportError:
+            from graficos import gerar_graficos
+        titulos = gerar_graficos(clean, output_dir)
+        for chave, titulo in titulos.items():
+            try:
+                print(f"Gr�fico gerado ({chave}): {titulo}")
+            except UnicodeEncodeError:
+                print(f"Grafico gerado ({chave})")
+    except Exception as erro:
+        print(f"Aviso: gera��o de gr�ficos n�o executada: {erro}", file=sys.stderr)
+
     return report
 
 
