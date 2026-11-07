@@ -65,8 +65,12 @@ function csvCell(value: string | number) {
 
 /** CSV de todas as ocorrências das leituras recebidas, independente de paginação. */
 export function qualityCsv(rows: TelemetryRow[]) {
+  return qualityOccurrenceCsv(qualityOccurrences(rows))
+}
+
+export function qualityOccurrenceCsv(occurrences: QualityOccurrence[]) {
   const header = ["leitura_id", "record_key", "maquina", "linha", "data", "sensor", "motivo", "categoria"]
-  const lines = qualityOccurrences(rows).map(occurrence => [
+  const lines = occurrences.map(occurrence => [
     occurrence.readingId,
     occurrence.recordKey,
     occurrence.machineId,
